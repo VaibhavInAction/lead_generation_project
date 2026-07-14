@@ -1,0 +1,21 @@
+# Intent-mining phrase templates (README §13.1).
+#
+# Phrases live in config, not code: adding a niche means adding phrases, not
+# editing Python. `{need}` is substituted with the CLI --need value
+# (e.g. "marketing agency", "video editor"). Each template becomes one
+# search-engine query, mined via DuckDuckGo's HTML endpoint.
+templates:
+  # --- Highest buying intent: recommendation-seeking ---------------------
+  # People publicly asking for a referral are ready to hire. Best agency leads.
+  - 'site:linkedin.com/posts "can anyone recommend a {need}"'
+  - 'site:linkedin.com/posts "anyone know a good {need}"'
+  - 'site:linkedin.com/posts "recommendations for a {need}"'
+  - 'site:linkedin.com/posts "looking for recommendations for a {need}"'
+
+  # --- Actively seeking external help ------------------------------------
+  - 'site:linkedin.com/posts "looking for a {need}"'
+  - 'site:linkedin.com/posts "searching for a {need}"'
+  - 'site:linkedin.com/posts "in need of a {need}"'
+  - 'site:linkedin.com/posts "trying to find a {need}"'
+  - 'site:linkedin.com/posts "we need a {need}"'
+  - 'site:linkedin.com/posts "looking to hire a {need}"'

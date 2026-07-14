@@ -1,0 +1,40 @@
+{
+  "searchParameters": {
+    "q": "site:linkedin.com/posts \"looking for a marketing agency\"",
+    "type": "search",
+    "engine": "google",
+    "tbs": "qdr:w"
+  },
+  "organic": [
+    {
+      "title": "Jane Doe on LinkedIn: looking for a marketing agency",
+      "link": "https://www.linkedin.com/posts/jane-doe_marketing-activity-111?utm_source=share",
+      "snippet": "We are looking for a marketing agency in Mumbai.",
+      "position": 1
+    },
+    {
+      "title": "Ravi Kumar on LinkedIn: need a marketing partner",
+      "link": "https://www.linkedin.com/posts/ravi-kumar_need-marketing-activity-222",
+      "snippet": "Need a marketing partner for our D2C launch.",
+      "position": 2
+    },
+    {
+      "title": "10 best marketing agencies — Example Blog",
+      "link": "https://www.example.com/blog/marketing-agencies",
+      "snippet": "A listicle, not a lead.",
+      "position": 3
+    },
+    {
+      "title": "Acme Studios | LinkedIn",
+      "link": "https://www.linkedin.com/company/acme-studios",
+      "snippet": "A company page, not a post.",
+      "position": 4
+    },
+    {
+      "title": "Jane Doe on LinkedIn (duplicate result)",
+      "link": "https://www.linkedin.com/posts/jane-doe_marketing-activity-111",
+      "snippet": "Same post surfaced by another phrase — must dedupe.",
+      "position": 5
+    }
+  ]
+}

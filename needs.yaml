@@ -1,0 +1,23 @@
+# needs.yaml — the services YOUR agency sells, i.e. what your ideal clients
+# publicly go looking for. `leadforge intent scrape-all` mines LinkedIn posts for
+# every entry here (README §14).
+#
+# EDIT THIS LIST to match your offering. Rules for good entries:
+#   * A countable "provider" noun that fits the sentence "looking for a ___"
+#     (e.g. "social media manager", "SEO agency") — not a verb or a topic.
+#   * Keep it specific: "Google Ads expert" pulls warmer leads than "ads".
+#   * One service per line. More entries = more coverage, but a longer run
+#     (each need is throttled at human speed — see SCRAPE_DELAY_MIN/MAX).
+needs:
+  - marketing agency
+  - digital marketing agency
+  - social media manager
+  - social media agency
+  - marketing consultant
+  - marketing freelancer
+  - content creator
+  - SEO agency
+  - Google Ads expert
+  - email marketing expert
+  - brand strategist
+  - PPC expert

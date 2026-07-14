@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- Trimmed sample of a DuckDuckGo HTML results page (html.duckduckgo.com/html).
+     Used by parsing tests so they never hit the network (README §23). -->
+<html lang="en">
+<head><title>looking for a marketing agency at DuckDuckGo</title></head>
+<body>
+  <div class="results">
+    <div class="result results_links">
+      <h2 class="result__title">
+        <a class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.linkedin.com%2Fposts%2Fjane-doe_marketing-help-activity-111%3Futm%3Dshare&amp;rut=abc">
+          Jane Doe on LinkedIn: looking for a marketing agency
+        </a>
+      </h2>
+    </div>
+    <div class="result results_links">
+      <h2 class="result__title">
+        <a class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.linkedin.com%2Fposts%2Fravi-kumar_need-marketing-activity-222&amp;rut=def">
+          Ravi Kumar on LinkedIn: need a marketing partner
+        </a>
+      </h2>
+    </div>
+    <div class="result results_links">
+      <h2 class="result__title">
+        <a class="result__a" href="https://www.example.com/blog/marketing-agencies">
+          10 best marketing agencies — Example Blog
+        </a>
+      </h2>
+    </div>
+    <div class="result results_links">
+      <!-- Duplicate of the first post (matched by a second phrase) — must dedupe. -->
+      <h2 class="result__title">
+        <a class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.linkedin.com%2Fposts%2Fjane-doe_marketing-help-activity-111&amp;rut=xyz">
+          Jane Doe on LinkedIn: looking for a marketing agency
+        </a>
+      </h2>
+    </div>
+    <div class="result results_links">
+      <!-- A LinkedIn company page — not a post, must be filtered out. -->
+      <h2 class="result__title">
+        <a class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.linkedin.com%2Fcompany%2Facme-studios&amp;rut=ggg">
+          Acme Studios | LinkedIn
+        </a>
+      </h2>
+    </div>
+  </div>
+</body>
+</html>

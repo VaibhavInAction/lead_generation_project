@@ -1,0 +1,11 @@
+Alembic migration environment for LeadForge.
+
+Migrations run programmatically via `leadforge init` (see
+leadforge.database.migrate.run_migrations). The connection URL comes from
+DATABASE_URL / Settings (README §20), not from alembic.ini.
+
+To create a new migration during development, from the repo root:
+
+    alembic revision --autogenerate -m "describe change"
+
+alembic.ini (repo root) points script_location here.
