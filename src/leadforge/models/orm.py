@@ -123,6 +123,10 @@ class IntentLead(Base, TimestampMixin):
     lead_score: Mapped[int | None] = mapped_column(Integer, default=None)
     suggested_angle: Mapped[str | None] = mapped_column(Text, default=None)
 
+    # Quality (Phase 6) — completeness + validity, with soft-issue flags (README §17)
+    data_quality_score: Mapped[int] = mapped_column(Integer, default=0)  # 0–100
+    quality_flags: Mapped[list[str]] = mapped_column(JSON, default=list)
+
     status: Mapped[IntentStatus] = mapped_column(
         Enum(IntentStatus, native_enum=False, length=16), default=IntentStatus.NEW
     )

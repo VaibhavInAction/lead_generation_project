@@ -1,10 +1,10 @@
 """Intent scraping orchestration (README §7, §8, §14).
 
 The service layer wires a (DB-ignorant) scraper to persistence: it drives the
-:class:`ScrapeRunner`, maps each :class:`RawLead` to an :class:`IntentLead`, and
-upserts it deduped by ``post_url``. Scrape/enrich are separate commands, so this
-service only discovers, extracts, and stores — validation (Phase 6) and scoring
-(Phase 9) run later over the persisted rows.
+:class:`ScrapeRunner`, maps each :class:`RawLead` to an :class:`IntentLead`,
+cleans + quality-scores it (Phase 6), and upserts it deduped by ``post_url`` — so
+stored leads are already clean and carry a ``data_quality_score``. Freshness/ICP
+scoring (Phase 9) still runs later over the persisted rows.
 
 The SQL-backed :class:`SqlCheckpointStore` / :class:`SqlRunRecorder` implement the
 runner's injected protocols; each uses its own short transaction so checkpoints
@@ -34,6 +34,7 @@ from leadforge.models.schemas import RawLead, SearchQuery
 from leadforge.scrapers.base import BaseScraper, RunSummary, ScrapeRunner
 from leadforge.scrapers.intent.mapping import MappingError, raw_to_intent_lead
 from leadforge.scrapers.registry import get_scraper
+from leadforge.validation.intent import ValidationError, assess_intent_lead
 
 log = structlog.get_logger("leadforge.services.intent_scrape")
 
@@ -133,16 +134,40 @@ class IntentScrapeService:
         return summary
 
     def _store(self, raw: RawLead, need: str, counts: dict[str, int]) -> None:
-        """Map one RawLead to an IntentLead and upsert it, deduped by post_url.
+        """Map, clean, quality-score, and upsert one lead, deduped by post_url.
 
-        On a mapping failure the row goes to ``rejects`` (never silently dropped,
-        README §8) and the error is re-raised so the run counts it as a reject.
+        Hard failures (mapping or validation) go to ``rejects`` with a reason and
+        the error is re-raised so the run counts it (never silently dropped, §8).
+        Soft issues are kept and recorded in ``quality_flags`` (README §17).
         """
         try:
             lead = raw_to_intent_lead(raw, need_category=need)
         except MappingError as exc:
-            self._reject(raw, str(exc))
+            self._reject(raw, str(exc), stage="mapping")
             raise
+
+        # Phase 6: clean the fields and compute a data-quality score before storing.
+        assessment = assess_intent_lead(
+            author_name=lead.author_name,
+            author_headline=lead.author_headline,
+            company=lead.company,
+            need_text=lead.need_text,
+            post_text=lead.post_text,
+            posted_at=lead.posted_at,
+            author_profile_url=lead.author_profile_url,
+        )
+        if assessment.rejected:
+            reason = assessment.reason or "validation failed"
+            self._reject(raw, reason, stage="validation")
+            raise ValidationError(reason)
+
+        lead.author_name = assessment.author_name
+        lead.author_headline = assessment.author_headline
+        lead.company = assessment.company
+        lead.need_text = assessment.need_text
+        lead.post_text = assessment.post_text
+        lead.data_quality_score = assessment.data_quality_score
+        lead.quality_flags = assessment.quality_flags
 
         with session_scope(self._sessions) as session:
             repo = IntentLeadRepository(session)
@@ -150,12 +175,12 @@ class IntentScrapeService:
             repo.upsert_by_post_url(lead)
         counts["updated" if existed else "new"] += 1
 
-    def _reject(self, raw: RawLead, reason: str) -> None:
+    def _reject(self, raw: RawLead, reason: str, *, stage: str) -> None:
         with session_scope(self._sessions) as session:
             RejectRepository(session).add(
                 Reject(
                     source=raw.source,
-                    stage="mapping",
+                    stage=stage,
                     reason=reason,
                     raw_data=dict(raw.data),
                     source_url=raw.source_url,

@@ -83,6 +83,9 @@ def test_stores_extracted_intent_leads(tmp_path, session_factory) -> None:
         assert jane.need_category == "marketing"
         assert jane.company == "Acme Studios"
         assert jane.platform == "linkedin_public"
+        # Phase 6: stored leads carry a data-quality score (all fields present → 100).
+        assert jane.data_quality_score == 100
+        assert jane.quality_flags == []
 
         runs = ScrapeRunRepository(s)
         assert runs.count() == 1
@@ -92,6 +95,34 @@ def test_stores_extracted_intent_leads(tmp_path, session_factory) -> None:
         assert stored_run.finished_at is not None
 
         assert CheckpointRepository(s).get_for("linkedin_posts", "marketing") is not None
+
+
+def test_messy_lead_is_cleaned_and_scored_before_storage(tmp_path, session_factory) -> None:
+    def messy_extract(url: str) -> RawLead:
+        return RawLead(
+            source="linkedin_posts",
+            source_url=url,
+            data={
+                "author_name": "🙋 Aleea Khan 8aa8977",  # emoji + trailing ID fragment
+                "author_headline": "Founder &amp; CEO",
+                "post_text": "💡 We&#39;re looking for a 𝐦𝐚𝐫𝐤𝐞𝐭𝐢𝐧𝐠 agency to grow.",
+                "posted_at": datetime(2026, 7, 10, tzinfo=UTC),
+                "author_profile_url": "https://www.linkedin.com/in/aleea-khan",
+            },
+        )
+
+    scraper = FakeScraper([URLS[0]], messy_extract, source_name="linkedin_posts")
+    service = IntentScrapeService(scraper, _settings(tmp_path), session_factory)
+
+    service.run(need="marketing", since="30d")
+
+    with session_scope(session_factory) as s:
+        lead = IntentLeadRepository(s).get_by_post_url(URLS[0])
+        assert lead is not None
+        assert lead.author_name == "Aleea Khan"  # emoji + ID fragment removed
+        assert lead.author_headline == "Founder & CEO"  # entity decoded
+        assert lead.post_text == "💡 We're looking for a marketing agency to grow."  # emoji kept
+        assert lead.data_quality_score > 0
 
 
 def test_rerun_deduplicates_by_post_url(tmp_path, session_factory) -> None:

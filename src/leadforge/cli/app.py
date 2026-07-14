@@ -375,10 +375,10 @@ def intent_scrape_all(
 # URL stays complete and clickable.
 _INTENT_COLUMNS = (
     ("author", "author_name", 20),
-    ("headline", "author_headline", 16),
     ("company", "company", 14),
     ("need_text", "need_text", 40),
     ("posted_at", "posted_at", 16),
+    ("qual", "data_quality_score", 4),
 )
 _URL_HEADER = "post_url"
 
