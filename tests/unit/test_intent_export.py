@@ -18,6 +18,8 @@ LONG_URL = (
 ROWS: list[dict[str, object]] = [
     {
         "author_name": "Paul Mccarron",
+        "lead_score": 0,  # a hiring post -> forced to the bottom (Phase 9)
+        "category": "job_posting",
         "need_text": "We're hiring! We're looking for a Marketing Manager.",
         "post_url": LONG_URL,
         "posted_at": datetime(2026, 7, 8, 12, 18, tzinfo=UTC),
@@ -25,6 +27,8 @@ ROWS: list[dict[str, object]] = [
     },
     {
         "author_name": "Sarah Udaipurwala",
+        "lead_score": 88,
+        "category": "client_lead",
         "need_text": "Looking for a marketing/growth advisor.",
         "post_url": "https://www.linkedin.com/posts/sarah-udaipurwala_activity-1",
         "posted_at": None,  # genuinely absent -> empty cell
@@ -42,13 +46,14 @@ class TestWriteCsv:
             records = list(csv.reader(handle))
 
         assert records[0] == list(INTENT_COLUMNS)
-        assert records[1] == [
-            "Paul Mccarron",
-            "We're hiring! We're looking for a Marketing Manager.",
-            LONG_URL,  # full, un-truncated
-            "2026-07-08T12:18:00+00:00",
-            "linkedin_public",
-        ]
+        row = dict(zip(INTENT_COLUMNS, records[1], strict=True))
+        assert row["author_name"] == "Paul Mccarron"
+        assert row["lead_score"] == "0"
+        assert row["category"] == "job_posting"
+        assert row["need_text"] == "We're hiring! We're looking for a Marketing Manager."
+        assert row["post_url"] == LONG_URL  # full, un-truncated
+        assert row["posted_at"] == "2026-07-08T12:18:00+00:00"
+        assert row["platform"] == "linkedin_public"
         # Missing posted_at is an empty cell, not the string "None".
         assert records[2][INTENT_COLUMNS.index("posted_at")] == ""
 

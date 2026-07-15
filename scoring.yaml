@@ -1,0 +1,28 @@
+# scoring.yaml — tune how intent leads are scored (README §14, §16).
+#
+# EVERY value below is OPTIONAL. Delete this file and scoring still works: the
+# defaults shown here (all commented out) are baked into the code. Uncomment and
+# change any subset under `scoring:` to retune without touching code.
+#
+# lead_score (0–100) = a weighted blend of freshness + need-match + data-quality,
+# EXCEPT a post classified `job_posting` is capped near 0 — a recruiter hiring
+# staff is never a client lead, however fresh or on-topic the post is.
+scoring:
+  # --- Freshness: intent decays fast (a "need editor" post is dead in a week) ---
+  # freshness_half_life_days: 4.0     # score halves every N days
+  # freshness_fallback_penalty: 0.6   # multiplier when posted_at is missing
+
+  # --- Component weights (normalized automatically; need not sum to 1) ---
+  # weight_freshness: 0.4
+  # weight_need_match: 0.4
+  # weight_data_quality: 0.2
+
+  # --- Need-match: how well the post fits the matched need term ---
+  # need_full_phrase: 70.0            # whole need phrase appears verbatim
+  # need_all_tokens: 50.0             # every need word present, not adjacent
+  # need_partial_cap: 40.0            # scaled by fraction of need words present
+  # need_topic_floor: 10.0            # need not really present
+  # need_solicitation_bonus: 30.0     # "looking for a <need>" style phrasing
+
+  # --- Hard rule: cap a job/hiring post's lead_score here (near 0) ---
+  # job_posting_score_cap: 0.0

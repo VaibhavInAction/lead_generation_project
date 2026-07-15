@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Generic, TypeVar
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from leadforge.models.base import Base
@@ -87,6 +87,50 @@ class IntentLeadRepository(BaseRepository[IntentLead]):
         if limit is not None:
             stmt = stmt.limit(limit)
         return list(self.session.scalars(stmt).all())
+
+    def _ranked_stmt(
+        self, *, category: str | None = None, newer_than: datetime | None = None
+    ) -> Select[tuple[IntentLead]]:
+        """Filter (category / recency) shared by :meth:`list_ranked` and :meth:`count_ranked`.
+
+        Recency uses ``posted_at`` when known, else ``first_seen`` — the same
+        fallback the freshness scorer uses (README §14), so a post with no
+        timestamp is aged from when we first saw it, not silently kept forever.
+        """
+        stmt = select(IntentLead)
+        if category is not None:
+            stmt = stmt.where(IntentLead.category == category)
+        if newer_than is not None:
+            effective = func.coalesce(IntentLead.posted_at, IntentLead.first_seen)
+            stmt = stmt.where(effective >= newer_than)
+        return stmt
+
+    def list_ranked(
+        self,
+        *,
+        category: str | None = None,
+        newer_than: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[IntentLead]:
+        """Intent leads ranked by ``lead_score`` desc (Phase 9, README §16).
+
+        Unscored rows (``lead_score`` NULL) sort last under SQLite's DESC nulls-last
+        ordering; ties break by most-recent-first. Optionally filtered to one
+        ``category`` and to posts newer than ``newer_than``.
+        """
+        stmt = self._ranked_stmt(category=category, newer_than=newer_than).order_by(
+            IntentLead.lead_score.desc(), IntentLead.first_seen.desc(), IntentLead.id
+        )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.session.scalars(stmt).all())
+
+    def count_ranked(
+        self, *, category: str | None = None, newer_than: datetime | None = None
+    ) -> int:
+        """Count intent leads matching the same filters as :meth:`list_ranked`."""
+        stmt = self._ranked_stmt(category=category, newer_than=newer_than)
+        return self.session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
     def upsert_by_post_url(self, lead: IntentLead) -> IntentLead:
         """Insert a new intent lead, or refresh the existing one for this ``post_url``.

@@ -372,15 +372,49 @@ def intent_scrape_all(
 
 # (header, dict-key, column width) for the fixed-width part of the `intent list`
 # table. post_url is handled separately as the final, un-truncated column so the
-# URL stays complete and clickable.
+# URL stays complete and clickable. score + category lead so the ranking (Phase 9)
+# and *why* a post ranks are the first things read.
 _INTENT_COLUMNS = (
-    ("author", "author_name", 20),
-    ("company", "company", 14),
-    ("need_text", "need_text", 40),
+    ("score", "lead_score", 5),
+    ("category", "category", 11),
+    ("author", "author_name", 18),
+    ("need_text", "need_text", 34),
     ("posted_at", "posted_at", 16),
     ("qual", "data_quality_score", 4),
 )
 _URL_HEADER = "post_url"
+
+# The category filter accepted by `intent list` / `intent export`; "all" disables it.
+_CATEGORY_CHOICES = ("client_lead", "job_posting", "unclear", "all")
+
+
+def _resolve_category(value: str) -> str | None:
+    """Validate a --category value; return the filter (or ``None`` for 'all').
+
+    Exits with a clean error rather than a traceback on an unknown category.
+    """
+    normalized = value.strip().lower()
+    if normalized not in _CATEGORY_CHOICES:
+        typer.secho(
+            f"--category {value!r} is invalid (choose: {', '.join(_CATEGORY_CHOICES)}).",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    return None if normalized == "all" else normalized
+
+
+def _newer_than(max_age: int | None) -> datetime | None:
+    """Cutoff datetime for a --max-age window, or ``None`` for no age filter.
+
+    Naive UTC so it compares cleanly against SQLite's naive timestamp storage.
+    """
+    if max_age is None:
+        return None
+    from datetime import timedelta
+
+    from leadforge.models.base import utcnow
+
+    return utcnow().replace(tzinfo=None) - timedelta(days=max_age)
 
 
 def _console_safe(text: str) -> str:
@@ -423,13 +457,56 @@ def _print_intent_table(rows: list[dict[str, object]]) -> None:
         typer.echo(str(i).ljust(num_w) + "  " + cells + "  " + url)
 
 
+@intent_app.command("score")
+def intent_score() -> None:
+    """(Re)score all stored intent leads: classify + freshness + need-match (README §16).
+
+    Classifies each post as client_lead / job_posting / unclear, blends freshness,
+    need-match, and data quality into ``lead_score`` (0–100), and flips the lead's
+    status to ``scored``. Job postings are forced near 0 — they're not clients.
+    Re-run any time: freshness decays with the clock, so scores go stale.
+    """
+    from leadforge.services.intent_score import build_intent_score_service
+
+    settings = get_settings()
+    service = build_intent_score_service(settings)
+    summary = service.run()
+
+    if summary.total == 0:
+        typer.echo("No intent leads to score. Run: leadforge intent scrape --need <thing>")
+        return
+
+    typer.secho(
+        f"Scored {summary.scored} of {summary.total} intent lead(s).", fg=typer.colors.GREEN
+    )
+    typer.echo(f"  client leads   {summary.client_leads}")
+    typer.echo(f"  job postings   {summary.job_postings}  (excluded from results by default)")
+    typer.echo(f"  unclear        {summary.unclear}")
+    typer.echo("\nSee the ranked, client-only list: leadforge intent list")
+
+
 @intent_app.command("list")
 def intent_list(
-    limit: int = typer.Option(20, "--limit", help="Max leads to show (most recent first)."),
+    limit: int = typer.Option(20, "--limit", help="Max leads to show."),
+    category: str = typer.Option(
+        "client_lead",
+        "--category",
+        help="Filter by category: client_lead | job_posting | unclear | all.",
+    ),
+    max_age: int | None = typer.Option(
+        None, "--max-age", help="Only posts newer than N days (by posted_at, else first_seen)."
+    ),
 ) -> None:
-    """List stored intent leads as a table, most recently captured first (README §14)."""
+    """List stored intent leads, ranked by lead_score desc (README §14, §16).
+
+    Defaults to client leads only — the businesses actually seeking an agency;
+    hiring/job posts are hidden unless you pass ``--category job_posting`` or ``all``.
+    """
     from leadforge.database import create_db_engine, create_session_factory, session_scope
     from leadforge.database.repositories import IntentLeadRepository
+
+    cat_filter = _resolve_category(category)
+    newer_than = _newer_than(max_age)
 
     settings = get_settings()
     engine = create_db_engine(settings)
@@ -437,21 +514,28 @@ def intent_list(
     try:
         with session_scope(session_factory) as session:
             repo = IntentLeadRepository(session)
-            total = repo.count()
+            total = repo.count_ranked(category=cat_filter, newer_than=newer_than)
             # Materialize the rows inside the session so rendering needs no ORM access.
             keys = [key for _, key, _ in _INTENT_COLUMNS] + ["post_url"]
             rows = [
-                {key: getattr(lead, key) for key in keys} for lead in repo.list_recent(limit=limit)
+                {key: getattr(lead, key) for key in keys}
+                for lead in repo.list_ranked(
+                    category=cat_filter, newer_than=newer_than, limit=limit
+                )
             ]
     finally:
         engine.dispose()
 
+    scope = "all categories" if cat_filter is None else cat_filter
     if not rows:
-        typer.echo("No intent leads stored yet. Run: leadforge intent scrape --need <thing>")
+        typer.echo(
+            f"No intent leads match (category={scope}). "
+            "Run: leadforge intent scrape --need <thing> && leadforge intent score"
+        )
         return
 
     _print_intent_table(rows)
-    typer.echo(f"\nShowing {len(rows)} of {total} intent lead(s), most recent first.")
+    typer.echo(f"\nShowing {len(rows)} of {total} intent lead(s) [{scope}], ranked by lead_score.")
 
 
 @intent_app.command("export")
@@ -460,8 +544,20 @@ def intent_export(
     output: str | None = typer.Option(
         None, "--output", help="Output path (default: <EXPORT_DIR>/intent_leads_<timestamp>.<ext>)."
     ),
+    category: str = typer.Option(
+        "client_lead",
+        "--category",
+        help="Filter by category: client_lead | job_posting | unclear | all.",
+    ),
+    max_age: int | None = typer.Option(
+        None, "--max-age", help="Only posts newer than N days (by posted_at, else first_seen)."
+    ),
 ) -> None:
-    """Export all stored intent leads to a file in exports/ (README §18)."""
+    """Export stored intent leads to a file in exports/, ranked by lead_score (README §18).
+
+    Defaults to client leads only — the actual outreach list — sorted by
+    ``lead_score`` desc. Pass ``--category all`` (or a specific one) to widen it.
+    """
     from leadforge.database import create_db_engine, create_session_factory, session_scope
     from leadforge.database.repositories import IntentLeadRepository
     from leadforge.exports.intent import INTENT_COLUMNS, write_intent_leads
@@ -474,22 +570,26 @@ def intent_export(
         )
         raise typer.Exit(code=1)
 
+    cat_filter = _resolve_category(category)
+    newer_than = _newer_than(max_age)
+
     settings = get_settings()
     engine = create_db_engine(settings)
     session_factory = create_session_factory(engine)
     try:
         with session_scope(session_factory) as session:
             repo = IntentLeadRepository(session)
-            # All leads, most recent first; materialized so writing needs no ORM access.
+            # Ranked by lead_score desc; materialized so writing needs no ORM access.
             rows = [
                 {column: getattr(lead, column) for column in INTENT_COLUMNS}
-                for lead in repo.list_recent()
+                for lead in repo.list_ranked(category=cat_filter, newer_than=newer_than)
             ]
     finally:
         engine.dispose()
 
     if not rows:
-        typer.echo("No intent leads to export. Run: leadforge intent scrape --need <thing>")
+        scope = "all categories" if cat_filter is None else cat_filter
+        typer.echo(f"No intent leads to export (category={scope}).")
         return
 
     if output is None:

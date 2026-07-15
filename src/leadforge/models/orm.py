@@ -23,7 +23,7 @@ from sqlalchemy import JSON, Enum, Float, ForeignKey, Index, Integer, String, Te
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from leadforge.models.base import Base, TimestampMixin, utcnow
-from leadforge.models.enums import IntentStatus, LeadStatus
+from leadforge.models.enums import IntentStatus, LeadStatus, PostCategory
 
 
 def _new_id() -> str:
@@ -118,9 +118,14 @@ class IntentLead(Base, TimestampMixin):
     posted_at: Mapped[datetime | None] = mapped_column(default=None)
     platform: Mapped[str] = mapped_column(String(32))  # reddit | linkedin_public | job_board
 
-    # Actionability
+    # Actionability + scoring (Phase 9, README §14/§16)
     freshness_score: Mapped[int] = mapped_column(Integer, default=0)  # 0–100, decays fast
-    lead_score: Mapped[int | None] = mapped_column(Integer, default=None)
+    lead_score: Mapped[int | None] = mapped_column(Integer, default=None)  # 0–100, blended
+    # client_lead | job_posting | unclear — job posts are excluded from results by
+    # default (the product hunts for clients, not staff-hiring recruiters).
+    category: Mapped[str] = mapped_column(
+        String(16), default=PostCategory.UNCLEAR, server_default=PostCategory.UNCLEAR.value
+    )
     suggested_angle: Mapped[str | None] = mapped_column(Text, default=None)
 
     # Quality (Phase 6) — completeness + validity, with soft-issue flags (README §17)
@@ -141,6 +146,7 @@ class IntentLead(Base, TimestampMixin):
         Index("ix_intent_leads_platform", "platform"),
         Index("ix_intent_leads_need_category", "need_category"),
         Index("ix_intent_leads_status", "status"),
+        Index("ix_intent_leads_category", "category"),
     )
 
     def __repr__(self) -> str:

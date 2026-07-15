@@ -24,3 +24,17 @@ class IntentStatus(StrEnum):
     NEW = "new"
     SCORED = "scored"
     EXPORTED = "exported"
+
+
+class PostCategory(StrEnum):
+    """What kind of post an `IntentLead` came from (README §14, Phase 9).
+
+    The whole product hunts for *clients* — businesses seeking outside help — so
+    hiring/recruitment posts are noise and get filtered out by default. As a
+    `StrEnum`, each member *is* its lowercase string value, so it stores directly
+    into a plain ``String`` column and compares equal to that literal.
+    """
+
+    CLIENT_LEAD = "client_lead"  # someone seeking an agency/freelancer — KEEP
+    JOB_POSTING = "job_posting"  # an employer hiring staff — EXCLUDE by default
+    UNCLEAR = "unclear"  # neither pattern matched clearly

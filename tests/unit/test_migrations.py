@@ -18,6 +18,9 @@ EXPECTED_TABLES = {"leads", "intent_leads", "rejects", "scrape_runs", "checkpoin
 # The Phase-6 migration adds these to intent_leads.
 _QUALITY_COLUMNS = {"data_quality_score", "quality_flags"}
 _INITIAL_REVISION = "7e743ef52c9d"
+# The Phase-9 migration adds the post-classification column.
+_CATEGORY_COLUMN = "category"
+_PRE_PHASE9_REVISION = "72de0d2260ff"
 
 
 def test_run_migrations_creates_all_tables(tmp_path) -> None:
@@ -80,6 +83,46 @@ def test_quality_migration_backfills_existing_rows(tmp_path) -> None:
     engine.dispose()
     assert row[0] == 0
     assert row[1] == "[]"
+
+
+def test_migrations_add_category_column(tmp_path) -> None:
+    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'm.db'}")
+    run_migrations(settings)
+
+    engine = create_db_engine(settings)
+    columns = {col["name"] for col in inspect(engine).get_columns("intent_leads")}
+    engine.dispose()
+    assert _CATEGORY_COLUMN in columns
+
+
+def test_category_migration_backfills_existing_rows(tmp_path) -> None:
+    """Upgrading a populated DB backfills the NOT NULL category column to 'unclear'."""
+    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'm.db'}")
+    config = make_alembic_config(settings)
+
+    command.upgrade(config, _PRE_PHASE9_REVISION)  # schema *before* Phase 9
+    engine = create_db_engine(settings)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO intent_leads "
+                "(id, author_name, need_text, need_category, post_url, post_text, "
+                " platform, freshness_score, data_quality_score, quality_flags, status, "
+                " first_seen, last_updated) "
+                "VALUES ('id1', 'Casey Lee', 'need', 'marketing', 'https://x/p/1', 'body', "
+                " 'linkedin_public', 0, 0, '[]', 'new', "
+                " '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+            )
+        )
+
+    command.upgrade(config, "head")  # apply Phase 9 on the populated table
+
+    with engine.connect() as conn:
+        category = conn.execute(
+            text("SELECT category FROM intent_leads WHERE id='id1'")
+        ).scalar_one()
+    engine.dispose()
+    assert category == "unclear"
 
 
 def test_init_command(tmp_path, monkeypatch) -> None:

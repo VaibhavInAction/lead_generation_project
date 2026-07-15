@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     intent_queries_path: str = "intent_queries.yaml"
     # The agency's target services, mined together by `intent scrape-all` (README §14)
     needs_path: str = "needs.yaml"
+    # Tunable scoring weights/thresholds; missing file → built-in defaults (README §16)
+    scoring_path: str = "scoring.yaml"
 
     # Search discovery (README §13.1). Serper.dev (Google results as JSON, free,
     # no card) is the default; Brave needs a card; DDG-HTML soft-blocks (HTTP 202)

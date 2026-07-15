@@ -11,6 +11,7 @@ from leadforge.config.settings import Settings, get_settings
 from leadforge.database.engine import create_db_engine, create_session_factory, session_scope
 from leadforge.database.repositories import IntentLeadRepository
 from leadforge.models.base import Base
+from leadforge.models.enums import PostCategory
 from leadforge.models.orm import IntentLead
 from leadforge.scrapers.base import RunSummary
 
@@ -125,7 +126,14 @@ def test_scrape_all_reports_missing_needs_file(tmp_path, monkeypatch) -> None:
     assert "intent scrape-all" in result.output
 
 
-def _intent(author: str, post_slug: str, first_seen: datetime) -> IntentLead:
+def _intent(
+    author: str,
+    post_slug: str,
+    first_seen: datetime,
+    *,
+    category: str = PostCategory.CLIENT_LEAD,
+    lead_score: int | None = None,
+) -> IntentLead:
     return IntentLead(
         author_name=author,
         need_text=f"{author} needs marketing",
@@ -134,6 +142,8 @@ def _intent(author: str, post_slug: str, first_seen: datetime) -> IntentLead:
         post_text=f"{author} post body",
         platform="linkedin_public",
         first_seen=first_seen,
+        category=category,
+        lead_score=lead_score,
     )
 
 
@@ -179,6 +189,7 @@ def test_intent_list_shows_full_post_url(tmp_path, monkeypatch) -> None:
                 post_text="body",
                 platform="linkedin_public",
                 first_seen=datetime(2026, 1, 1, tzinfo=UTC),
+                category=PostCategory.CLIENT_LEAD,
             )
         ],
     )
@@ -216,7 +227,7 @@ def test_intent_list_empty(tmp_path, monkeypatch) -> None:
     result = runner.invoke(app, ["intent", "list"])
 
     assert result.exit_code == 0, result.output
-    assert "No intent leads stored yet" in result.output
+    assert "No intent leads match" in result.output
 
 
 def test_intent_export_csv_writes_file(tmp_path, monkeypatch) -> None:
@@ -235,9 +246,13 @@ def test_intent_export_csv_writes_file(tmp_path, monkeypatch) -> None:
     assert "Exported 1 intent lead" in result.output
     with out.open(encoding="utf-8-sig", newline="") as handle:
         records = list(csv.reader(handle))
-    assert records[0] == ["author_name", "need_text", "post_url", "posted_at", "platform"]
-    assert records[1][0] == "Casey Lee"
-    assert records[1][2] == "https://www.linkedin.com/posts/casey_1"  # full URL
+    from leadforge.exports.intent import INTENT_COLUMNS
+
+    assert records[0] == list(INTENT_COLUMNS)
+    assert records[1][INTENT_COLUMNS.index("author_name")] == "Casey Lee"
+    assert records[1][INTENT_COLUMNS.index("category")] == "client_lead"
+    # full URL, un-truncated
+    assert records[1][INTENT_COLUMNS.index("post_url")] == "https://www.linkedin.com/posts/casey_1"
 
 
 def test_intent_export_rejects_bad_format(tmp_path, monkeypatch) -> None:
