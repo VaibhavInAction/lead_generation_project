@@ -121,10 +121,11 @@ class IntentLead(Base, TimestampMixin):
     # Actionability + scoring (Phase 9, README §14/§16)
     freshness_score: Mapped[int] = mapped_column(Integer, default=0)  # 0–100, decays fast
     lead_score: Mapped[int | None] = mapped_column(Integer, default=None)  # 0–100, blended
-    # client_lead | job_posting | unclear — job posts are excluded from results by
-    # default (the product hunts for clients, not staff-hiring recruiters).
+    # Post classification (PostCategory) — only client_lead is a genuine lead; all
+    # other buckets (job_posting, recruiter_staffing, competitor_selfpromo,
+    # content_noise, unclear) are noise and excluded from results by default.
     category: Mapped[str] = mapped_column(
-        String(16), default=PostCategory.UNCLEAR, server_default=PostCategory.UNCLEAR.value
+        String(32), default=PostCategory.UNCLEAR, server_default=PostCategory.UNCLEAR.value
     )
     suggested_angle: Mapped[str | None] = mapped_column(Text, default=None)
 

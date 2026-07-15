@@ -10,7 +10,7 @@ a lead scored last week is stale today. Pure scoring logic lives in
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 import structlog
@@ -29,13 +29,16 @@ log = structlog.get_logger("leadforge.services.intent_score")
 
 @dataclass
 class ScoreSummary:
-    """Counts from a scoring pass — total seen and per-category tallies."""
+    """Counts from a scoring pass — total seen and a tally per category."""
 
     total: int = 0
     scored: int = 0
-    client_leads: int = 0
-    job_postings: int = 0
-    unclear: int = 0
+    by_category: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def client_leads(self) -> int:
+        """Genuine client leads found — the number that matters."""
+        return self.by_category.get(PostCategory.CLIENT_LEAD.value, 0)
 
 
 class IntentScoreService:
@@ -62,6 +65,7 @@ class IntentScoreService:
                 result = score_intent_lead(
                     need_category=lead.need_category,
                     post_text=lead.post_text,
+                    author_name=lead.author_name,
                     posted_at=lead.posted_at,
                     first_seen=lead.first_seen,
                     data_quality_score=lead.data_quality_score,
@@ -73,19 +77,9 @@ class IntentScoreService:
                 lead.lead_score = result.lead_score
                 lead.status = IntentStatus.SCORED
                 summary.scored += 1
-                if result.category is PostCategory.CLIENT_LEAD:
-                    summary.client_leads += 1
-                elif result.category is PostCategory.JOB_POSTING:
-                    summary.job_postings += 1
-                else:
-                    summary.unclear += 1
-        log.info(
-            "intent.scored",
-            total=summary.total,
-            client_leads=summary.client_leads,
-            job_postings=summary.job_postings,
-            unclear=summary.unclear,
-        )
+                key = result.category.value
+                summary.by_category[key] = summary.by_category.get(key, 0) + 1
+        log.info("intent.scored", total=summary.total, **summary.by_category)
         return summary
 
 

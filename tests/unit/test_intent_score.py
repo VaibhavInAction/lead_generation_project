@@ -83,7 +83,7 @@ def test_service_scores_and_classifies(tmp_path) -> None:
 
     assert summary.total == 2
     assert summary.client_leads == 1
-    assert summary.job_postings == 1
+    assert summary.by_category == {"client_lead": 1, "job_posting": 1}
 
     engine = create_db_engine(settings)
     session_factory = create_session_factory(engine)
@@ -118,8 +118,10 @@ def test_intent_score_cli_reports_counts(tmp_path, monkeypatch) -> None:
     result = runner.invoke(app, ["intent", "score"])
     assert result.exit_code == 0, result.output
     assert "Scored 2 of 2" in result.output
-    assert "client leads   1" in result.output
-    assert "job postings   1" in result.output
+    # One line per category; the two present here show a count of 1.
+    assert "client_lead" in result.output
+    assert "job_posting" in result.output
+    assert "your outreach list" in result.output
 
 
 def test_intent_list_defaults_to_client_leads_only(tmp_path, monkeypatch) -> None:

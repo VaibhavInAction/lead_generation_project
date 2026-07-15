@@ -35,6 +35,7 @@ def score_intent_lead(
     *,
     need_category: str | None,
     post_text: str | None,
+    author_name: str | None = None,
     posted_at: datetime | None,
     first_seen: datetime | None,
     data_quality_score: int,
@@ -42,7 +43,7 @@ def score_intent_lead(
     config: ScoringConfig,
 ) -> LeadScoreResult:
     """Classify, score each factor, and blend into a 0–100 ``lead_score``."""
-    classification = classify_post(post_text)
+    classification = classify_post(post_text, author_name=author_name)
     fresh = freshness_score(posted_at=posted_at, first_seen=first_seen, now=now, config=config)
     need = need_match_score(need_category=need_category, post_text=post_text, config=config)
     quality = max(0, min(100, data_quality_score))
@@ -50,10 +51,12 @@ def score_intent_lead(
     w_fresh, w_need, w_quality = config.normalized_weights()
     blended = w_fresh * fresh.score + w_need * need.score + w_quality * quality
 
-    # Hard rule (README §14): a hiring post is not a client lead — cap it near 0.
-    capped = classification.category is PostCategory.JOB_POSTING
+    # Hard rule (README §14): only a genuine client lead earns a real score.
+    # Every other category — job posting, recruiter, competitor, noise — is capped
+    # near 0 so it can never float above the real leads.
+    capped = not classification.category.is_client
     if capped:
-        blended = min(blended, config.job_posting_score_cap)
+        blended = min(blended, config.non_client_score_cap)
 
     lead_score = max(0, min(100, round(blended)))
     breakdown: dict[str, object] = {
@@ -63,9 +66,9 @@ def score_intent_lead(
         "data_quality": quality,
         "weights": {"freshness": w_fresh, "need_match": w_need, "data_quality": w_quality},
         "freshness_used_fallback": fresh.used_fallback,
-        "job_posting_capped": capped,
-        "job_signals": classification.job_signals,
-        "client_signals": classification.client_signals,
+        "non_client_capped": capped,
+        "has_request": classification.has_request,
+        "signals": classification.signals,
     }
     return LeadScoreResult(
         lead_score=lead_score,

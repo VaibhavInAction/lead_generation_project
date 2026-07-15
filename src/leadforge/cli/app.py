@@ -384,8 +384,12 @@ _INTENT_COLUMNS = (
 )
 _URL_HEADER = "post_url"
 
-# The category filter accepted by `intent list` / `intent export`; "all" disables it.
-_CATEGORY_CHOICES = ("client_lead", "job_posting", "unclear", "all")
+
+def _category_choices() -> tuple[str, ...]:
+    """Valid --category values: every PostCategory value, plus 'all' (no filter)."""
+    from leadforge.models.enums import PostCategory
+
+    return (*(c.value for c in PostCategory), "all")
 
 
 def _resolve_category(value: str) -> str | None:
@@ -393,10 +397,11 @@ def _resolve_category(value: str) -> str | None:
 
     Exits with a clean error rather than a traceback on an unknown category.
     """
+    choices = _category_choices()
     normalized = value.strip().lower()
-    if normalized not in _CATEGORY_CHOICES:
+    if normalized not in choices:
         typer.secho(
-            f"--category {value!r} is invalid (choose: {', '.join(_CATEGORY_CHOICES)}).",
+            f"--category {value!r} is invalid (choose: {', '.join(choices)}).",
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
@@ -461,11 +466,13 @@ def _print_intent_table(rows: list[dict[str, object]]) -> None:
 def intent_score() -> None:
     """(Re)score all stored intent leads: classify + freshness + need-match (README §16).
 
-    Classifies each post as client_lead / job_posting / unclear, blends freshness,
-    need-match, and data quality into ``lead_score`` (0–100), and flips the lead's
-    status to ``scored``. Job postings are forced near 0 — they're not clients.
-    Re-run any time: freshness decays with the clock, so scores go stale.
+    Classifies each post (client_lead / job_posting / recruiter_staffing /
+    competitor_selfpromo / content_noise / unclear), blends freshness, need-match,
+    and data quality into ``lead_score`` (0–100), and flips the lead's status to
+    ``scored``. Only genuine client leads keep a real score; everything else is
+    forced near 0. Re-run any time: freshness decays with the clock.
     """
+    from leadforge.models.enums import PostCategory
     from leadforge.services.intent_score import build_intent_score_service
 
     settings = get_settings()
@@ -479,9 +486,10 @@ def intent_score() -> None:
     typer.secho(
         f"Scored {summary.scored} of {summary.total} intent lead(s).", fg=typer.colors.GREEN
     )
-    typer.echo(f"  client leads   {summary.client_leads}")
-    typer.echo(f"  job postings   {summary.job_postings}  (excluded from results by default)")
-    typer.echo(f"  unclear        {summary.unclear}")
+    for cat in PostCategory:
+        count = summary.by_category.get(cat.value, 0)
+        note = "  <- your outreach list" if cat.is_client else " (excluded by default)"
+        typer.echo(f"  {cat.value:<21} {count:>4}{note}")
     typer.echo("\nSee the ranked, client-only list: leadforge intent list")
 
 

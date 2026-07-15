@@ -24,5 +24,6 @@ scoring:
   # need_topic_floor: 10.0            # need not really present
   # need_solicitation_bonus: 30.0     # "looking for a <need>" style phrasing
 
-  # --- Hard rule: cap a job/hiring post's lead_score here (near 0) ---
-  # job_posting_score_cap: 0.0
+  # --- Hard rule: cap any non-client post's lead_score here (near 0) ---
+  # (job_posting, recruiter_staffing, competitor_selfpromo, content_noise, unclear)
+  # non_client_score_cap: 0.0

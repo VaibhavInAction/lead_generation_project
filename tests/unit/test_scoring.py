@@ -41,11 +41,127 @@ HIRING_POST_2 = (
 CLIENT_FREELANCER = "Need someone to run our Google Ads. Looking for a freelancer or consultant."
 
 
+# --- Real production posts: the 7 genuine leads vs. the 8 junk misfires --------
+# (author_name, post_text) reconstructed from posts we saw misclassified live.
+# GENUINE: a first-person request for outside help → must stay client_lead.
+GENUINE_LEADS: list[tuple[str, str]] = [
+    (
+        "Vedantkantharia",
+        "We are looking for a marketing agency to run paid ads for our D2C brand. "
+        "Budget is ~$2k/month. DM me if this is your wheelhouse.",
+    ),
+    (
+        "Ehab Kandeel",
+        "I'm looking for a freelance video editor for our YouTube channel. "
+        "Send me your showreel and rates.",
+    ),
+    (
+        "Tom Payne",
+        "We need a social media manager for our SaaS startup — someone to own "
+        "content end to end. Message me with your portfolio.",
+    ),
+    (
+        "Beatrice",
+        "In need of a branding consultant for our restaurant rebrand. Kindly DM me your portfolio.",
+    ),
+    (
+        "Kartik Kumar",
+        "We are seeking an SEO agency to improve our organic traffic. "
+        "Happy to share the brief — drop me a message.",
+    ),
+    (
+        "Utsavvijendra",
+        "Looking for a PPC expert to manage our Google Ads. "
+        "I'm happy to share scope and budget — DM me.",
+    ),
+    (
+        "Taniasawaya",
+        "We're looking for a content creator to produce short-form reels for our "
+        "restaurant. Send me your portfolio and rates.",
+    ),
+]
+
+# JUNK: keyword-matches "looking for a marketing agency" etc. but is NOT a lead.
+JUNK_POSTS: list[tuple[str, str, PostCategory]] = [
+    (
+        "Divyankar",
+        "One thing I've been thinking about lately: when a business owner looks for "
+        "an agency, they rarely know what to ask for.",
+        PostCategory.CONTENT_NOISE,
+    ),
+    (
+        "Growthhackers Agency",
+        "Why Hire a Marketing Agency? 1. They have experience. 2. They save you time. "
+        "3. They bring fresh ideas.",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+    (
+        "Pavel",
+        "If you're looking for a marketing agency, this article is worth reading — "
+        "it breaks down what to watch out for.",
+        PostCategory.CONTENT_NOISE,
+    ),
+    (
+        "Nelson",
+        "These scammers are getting good. I recently saw one target someone looking "
+        "for a marketing agency and nearly pull it off.",
+        PostCategory.CONTENT_NOISE,
+    ),
+    (
+        "Zahra",
+        "I'm working with an agency looking for a Content Creator to join them on a "
+        "3-month contract. Reach out if keen.",
+        PostCategory.RECRUITER_STAFFING,
+    ),
+    (
+        "Shauna",
+        "We're a boutique creative agency growing our roster of freelance content "
+        "creators. If you'd like to be considered, send me a note.",
+        PostCategory.RECRUITER_STAFFING,
+    ),
+    (
+        "Randy",
+        "We're on the hunt for a content creator to join us at nHabit — freelance "
+        "basis, working across a few of our clients.",
+        PostCategory.RECRUITER_STAFFING,
+    ),
+    (
+        "Bobgeneraleinteractivemedia",
+        "You know those AI-generated posts that flood your feed? Here's why they're "
+        "quietly killing your brand.",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+]
+
+
 class TestClassifyPost:
+    @pytest.mark.parametrize("author, post", GENUINE_LEADS)
+    def test_genuine_requests_are_client_leads(self, author: str, post: str) -> None:
+        result = classify_post(post, author_name=author)
+        assert result.category is PostCategory.CLIENT_LEAD, (author, result.signals)
+
+    @pytest.mark.parametrize("author, post, expected", JUNK_POSTS)
+    def test_junk_posts_are_not_client_leads(
+        self, author: str, post: str, expected: PostCategory
+    ) -> None:
+        result = classify_post(post, author_name=author)
+        assert result.category is not PostCategory.CLIENT_LEAD, (author, result.signals)
+        # And it lands in the specific bucket that explains *why* it's junk.
+        assert result.category is expected, (author, result.signals)
+
+    def test_seven_genuine_kept_eight_junk_excluded(self) -> None:
+        # The headline metric: exactly the 7 real asks survive as client leads.
+        kept = [a for a, p in GENUINE_LEADS if classify_post(p, author_name=a).category.is_client]
+        dropped = [
+            a for a, p, _ in JUNK_POSTS if not classify_post(p, author_name=a).category.is_client
+        ]
+        assert len(kept) == 7
+        assert len(dropped) == 8
+
     def test_client_lead_seeking_agency(self) -> None:
         result = classify_post(CLIENT_POST)
         assert result.category is PostCategory.CLIENT_LEAD
-        assert result.client_signals  # at least one signal fired
+        assert result.has_request
 
     def test_urgent_hiring_google_ads_is_job_posting(self) -> None:
         # The canonical noise example — must be excluded, not scored as a client.
@@ -154,8 +270,8 @@ class TestScoreIntentLead:
         result = self._score(HIRING_POST, "Google Ads expert")
         assert result.category is PostCategory.JOB_POSTING
         # Hard rule: no matter how fresh/on-topic, a hiring post is capped near 0.
-        assert result.lead_score <= CONFIG.job_posting_score_cap
-        assert result.breakdown["job_posting_capped"] is True
+        assert result.lead_score <= CONFIG.non_client_score_cap
+        assert result.breakdown["non_client_capped"] is True
 
     def test_client_beats_job_even_when_job_is_fresher(self) -> None:
         client = self._score(CLIENT_POST, "marketing agency", posted_at=NOW - timedelta(days=3))

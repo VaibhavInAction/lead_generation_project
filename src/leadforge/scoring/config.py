@@ -40,10 +40,11 @@ class ScoringConfig:
     need_topic_floor: float = 10.0  # need not really present
     need_solicitation_bonus: float = 30.0  # "looking for a <need>" etc.
 
-    # --- Hard rule: a job/hiring post is not a client lead ---
-    # A post classified job_posting has its lead_score capped here, near 0, no
-    # matter how fresh or on-topic — it is the wrong kind of post for us.
-    job_posting_score_cap: float = 0.0
+    # --- Hard rule: only a genuine client lead earns a real score ---
+    # Any non-client post (job_posting, recruiter_staffing, competitor_selfpromo,
+    # content_noise, unclear) has its lead_score capped here, near 0, no matter how
+    # fresh or on-topic — it is the wrong kind of post for us.
+    non_client_score_cap: float = 0.0
 
     def normalized_weights(self) -> tuple[float, float, float]:
         """The three component weights scaled to sum to 1 (equal split if all zero)."""

@@ -30,11 +30,21 @@ class PostCategory(StrEnum):
     """What kind of post an `IntentLead` came from (README §14, Phase 9).
 
     The whole product hunts for *clients* — businesses seeking outside help — so
-    hiring/recruitment posts are noise and get filtered out by default. As a
+    everything else is noise and is filtered out by default. Only ``CLIENT_LEAD``
+    is a genuine, first-person *request*; the other buckets name the specific way
+    a post is junk, so we can review each class with ``--category``. As a
     `StrEnum`, each member *is* its lowercase string value, so it stores directly
     into a plain ``String`` column and compares equal to that literal.
     """
 
-    CLIENT_LEAD = "client_lead"  # someone seeking an agency/freelancer — KEEP
-    JOB_POSTING = "job_posting"  # an employer hiring staff — EXCLUDE by default
-    UNCLEAR = "unclear"  # neither pattern matched clearly
+    CLIENT_LEAD = "client_lead"  # first-person request for outside help — KEEP
+    JOB_POSTING = "job_posting"  # an employer hiring staff (full-time, apply now)
+    CONTENT_NOISE = "content_noise"  # opinion/article-share/anecdote, not a request
+    COMPETITOR_SELFPROMO = "competitor_selfpromo"  # an agency promoting itself
+    RECRUITER_STAFFING = "recruiter_staffing"  # staffing a role to *join* an agency
+    UNCLEAR = "unclear"  # no request signal and no clear junk signal
+
+    @property
+    def is_client(self) -> bool:
+        """Whether this category is a genuine client lead (the only kind we keep)."""
+        return self is PostCategory.CLIENT_LEAD
