@@ -4,23 +4,34 @@
 #
 # EDIT THIS LIST to match your offering. Rules for good entries:
 #   * A countable "provider" noun that fits the sentence "looking for a ___"
-#     (e.g. "social media manager", "SEO agency") — not a verb or a topic.
-#   * Keep it specific: "Google Ads expert" pulls warmer leads than "ads".
-#   * One service per line. More entries = more coverage, but a longer run
-#     (each need is throttled at human speed — see SCRAPE_DELAY_MIN/MAX).
-# Tuned for Digital Nil (digitalnil.com, Pune): SEO, PPC/Google Ads, web design
-# & development, social media, content marketing, branding. Set SEARCH_COUNTRY=in
-# in .env so results weight toward India.
+#     (e.g. "social media agency", "SEO expert") — not a verb or a topic.
+#   * Quoted search phrases match exactly, so wording variants need their own
+#     line ("social media agency" will NOT match "social media marketing agency").
+#   * One service per line. More entries = more coverage, but a longer run and
+#     more search-API credits (needs x query templates = searches per batch).
+#
+# Tuned for Digital Nil (digitalnil.com, Pune) — services: social media, SEO,
+# PPC/Google Ads, web design & development, branding, content marketing, UI/UX.
+# SEARCH_COUNTRY=in in .env weights results toward India.
 needs:
+  # Broad agency asks (highest volume)
   - marketing agency
   - digital marketing agency
+  # Social media (their flagship)
   - social media agency
+  - social media marketing agency
   - social media manager
+  # SEO
   - SEO agency
-  - PPC agency
+  - SEO expert
+  # Paid ads / performance
   - Google Ads expert
+  - PPC agency
   - performance marketing agency
+  # Web & design
   - web design agency
   - website developer
-  - content marketing agency
+  - UI UX designer
+  # Brand & content
   - branding agency
+  - content marketing agency
