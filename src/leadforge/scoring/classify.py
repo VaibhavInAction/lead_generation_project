@@ -146,6 +146,20 @@ _CONTENT_NOISE = _compile(
     r"\bthese scammers\b",
     r"\b(?:true story|storytime|story time)\b",
     r"\ba (?:client|friend|founder) (?:once|recently)\b",
+    # testimonial / appreciation — already worked with someone, not seeking help
+    r"\bwhen i met\b",
+    r"\bwanted to work with (?:her|him|them)\b",
+    r"\bis so special\b",
+    r"\bso grateful (?:to|for)\b",
+    r"\bshout[\s-]?out to\b",
+    r"\bhighly recommend working with\b",
+    r"\bhad the pleasure of working\b",
+    # personal story / journey narrative
+    r"\bi survived\b",
+    r"\bmy journey\b",
+    r"\bsat down reflecting\b",
+    r"\b20\d{2}:",  # "2022:" year-marker storytelling
+    r"\bin 20\d{2} i\b",
 )
 
 

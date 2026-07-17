@@ -49,6 +49,16 @@ ADVICE_POST = (
     "Watch out for this BIG red flag in job postings. Seen a manager role reposted "
     "5x? DM me your worst examples."
 )
+# Testimonial — the author already hired someone and is praising them.
+TESTIMONIAL_POST = (
+    "I love working with value-aligned people. So when I met Shena, I instantly "
+    "knew that I wanted to work with her. Shena is so special because she gets it."
+)
+# Personal journey narrative — a life story, not a request for help.
+STORY_POST = (
+    "I survived a trauma that almost took my life.. Yesterday I sat down reflecting "
+    "on my journey. 2022: I came to the online space. I was into affiliate marketing."
+)
 
 
 # --- Real production posts: the 7 genuine leads vs. the 8 junk misfires --------
@@ -191,6 +201,16 @@ class TestClassifyPost:
     def test_advice_about_job_postings_is_content_noise(self) -> None:
         # Advice opener ("watch out for") is commentary — not a request for help.
         result = classify_post(ADVICE_POST, author_name="Davidloughney")
+        assert result.category is PostCategory.CONTENT_NOISE, result.signals
+
+    def test_testimonial_is_content_noise(self) -> None:
+        # Praise for someone already hired — not a client seeking help.
+        result = classify_post(TESTIMONIAL_POST, author_name="Jayamallik")
+        assert result.category is PostCategory.CONTENT_NOISE, result.signals
+
+    def test_personal_story_is_content_noise(self) -> None:
+        # A life-journey narrative — storytelling, not a request.
+        result = classify_post(STORY_POST, author_name="Oche Blessing")
         assert result.category is PostCategory.CONTENT_NOISE, result.signals
 
     def test_empty_or_bland_is_unclear(self) -> None:
