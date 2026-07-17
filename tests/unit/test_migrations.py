@@ -21,6 +21,9 @@ _INITIAL_REVISION = "7e743ef52c9d"
 # The Phase-9 migration adds the post-classification column.
 _CATEGORY_COLUMN = "category"
 _PRE_PHASE9_REVISION = "72de0d2260ff"
+# The Phase-8 migration adds the enrichment columns.
+_ENRICH_COLUMNS = {"contact_email", "website"}
+_PRE_PHASE8_REVISION = "e5f6a7b8c9d0"
 
 
 def test_run_migrations_creates_all_tables(tmp_path) -> None:
@@ -123,6 +126,47 @@ def test_category_migration_backfills_existing_rows(tmp_path) -> None:
         ).scalar_one()
     engine.dispose()
     assert category == "unclear"
+
+
+def test_migrations_add_enrichment_columns(tmp_path) -> None:
+    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'm.db'}")
+    run_migrations(settings)
+
+    engine = create_db_engine(settings)
+    columns = {col["name"] for col in inspect(engine).get_columns("intent_leads")}
+    engine.dispose()
+    assert _ENRICH_COLUMNS.issubset(columns)
+
+
+def test_enrichment_migration_backfills_existing_rows_to_null(tmp_path) -> None:
+    """Upgrading a populated DB adds the nullable enrichment columns as NULL."""
+    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'm.db'}")
+    config = make_alembic_config(settings)
+
+    command.upgrade(config, _PRE_PHASE8_REVISION)  # schema *before* Phase 8
+    engine = create_db_engine(settings)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO intent_leads "
+                "(id, author_name, need_text, need_category, post_url, post_text, "
+                " platform, freshness_score, data_quality_score, quality_flags, category, "
+                " status, first_seen, last_updated) "
+                "VALUES ('id1', 'Casey Lee', 'need', 'marketing', 'https://x/p/1', 'body', "
+                " 'linkedin_public', 0, 0, '[]', 'unclear', 'new', "
+                " '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+            )
+        )
+
+    command.upgrade(config, "head")  # apply Phase 8 on the populated table
+
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT contact_email, website FROM intent_leads WHERE id='id1'")
+        ).one()
+    engine.dispose()
+    assert row[0] is None
+    assert row[1] is None
 
 
 def test_init_command(tmp_path, monkeypatch) -> None:

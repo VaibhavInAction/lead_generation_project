@@ -39,6 +39,16 @@ HIRING_POST_2 = (
     "team in Denver. Apply now!"
 )
 CLIENT_FREELANCER = "Need someone to run our Google Ads. Looking for a freelancer or consultant."
+# "Join our <anything> Team" — a role to join, not a client asking for help.
+JOIN_TEAM_POST = (
+    "Join our Marketing Team! We're looking for a Social Media Manager to help "
+    "scale our brand."
+)
+# Advice *about* job postings — commentary, not a request for an agency.
+ADVICE_POST = (
+    "Watch out for this BIG red flag in job postings. Seen a manager role reposted "
+    "5x? DM me your worst examples."
+)
 
 
 # --- Real production posts: the 7 genuine leads vs. the 8 junk misfires --------
@@ -172,6 +182,16 @@ class TestClassifyPost:
 
     def test_freelancer_ask_is_client_lead(self) -> None:
         assert classify_post(CLIENT_FREELANCER).category is PostCategory.CLIENT_LEAD
+
+    def test_join_our_marketing_team_is_recruiter(self) -> None:
+        # "join our <anything> team" must trip the recruiter rule, not read as a client.
+        result = classify_post(JOIN_TEAM_POST, author_name="Once Upon A Farm")
+        assert result.category is PostCategory.RECRUITER_STAFFING, result.signals
+
+    def test_advice_about_job_postings_is_content_noise(self) -> None:
+        # Advice opener ("watch out for") is commentary — not a request for help.
+        result = classify_post(ADVICE_POST, author_name="Davidloughney")
+        assert result.category is PostCategory.CONTENT_NOISE, result.signals
 
     def test_empty_or_bland_is_unclear(self) -> None:
         assert classify_post("").category is PostCategory.UNCLEAR

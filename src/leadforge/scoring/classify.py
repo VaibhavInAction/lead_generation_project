@@ -90,8 +90,9 @@ _JOB = _compile(
 _RECRUITER = _compile(
     r"\bto join (?:us|them|our|the|my)\b",
     r"\blooking for (?:a|an)\b[^.!?\n]*\bto join\b",  # "…a Content Creator to join them"
-    r"\bjoin (?:our|the|my) (?:growing |wider )?team\b",
+    r"\bjoin (?:our|the|my)(?:\s+\w+){0,3}\s+team\b",  # "join our [growing/Marketing] team"
     r"\bjoin (?:us|them)\b",
+    r"\bcome join\b",
     r"\b(?:on a |work(?:ing)? on a )?freelance basis\b",
     r"\bworking across\b[^.!?\n]*\bclients?\b",
     r"\bgrowing our (?:roster|network|bench|team)\b",
@@ -126,6 +127,11 @@ _CONTENT_NOISE = _compile(
     r"\blet['’]s talk about\b",
     r"\bever wonder(?:ed)?\b",
     r"\bthink about it\b",
+    # advice / commentary openers — teaching *about* a topic, not requesting help
+    r"\bwatch out for\b",
+    r"\bpro tip\b",
+    r"\bhere['’]s what\b",
+    r"\bstop doing\b",
     # article shares
     r"\bthis article\b",
     r"\bworth (?:a )?read(?:ing)?\b",

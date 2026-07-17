@@ -378,7 +378,10 @@ _INTENT_COLUMNS = (
     ("score", "lead_score", 5),
     ("category", "category", 11),
     ("author", "author_name", 18),
-    ("need_text", "need_text", 34),
+    ("company", "company", 16),
+    ("need_text", "need_text", 28),
+    ("email", "contact_email", 22),
+    ("website", "website", 22),
     ("posted_at", "posted_at", 16),
     ("qual", "data_quality_score", 4),
 )
@@ -491,6 +494,29 @@ def intent_score() -> None:
         note = "  <- your outreach list" if cat.is_client else " (excluded by default)"
         typer.echo(f"  {cat.value:<21} {count:>4}{note}")
     typer.echo("\nSee the ranked, client-only list: leadforge intent list")
+
+
+@intent_app.command("enrich")
+def intent_enrich() -> None:
+    """(Re)enrich all stored intent leads: company, contact email, website (README §14).
+
+    Heuristics only — pulls each fact out of the post text (and author headline)
+    when it is clearly stated, leaving it blank otherwise. Idempotent and safe to
+    re-run; ``company`` is only filled, never overwritten.
+    """
+    from leadforge.services.intent_enrich import build_intent_enrich_service
+
+    settings = get_settings()
+    summary = build_intent_enrich_service(settings).run()
+
+    if summary.total == 0:
+        typer.echo("No intent leads to enrich. Run: leadforge intent scrape --need <thing>")
+        return
+
+    typer.secho(f"Enriched {summary.total} intent lead(s).", fg=typer.colors.GREEN)
+    typer.echo(f"  {'with company':<16} {summary.with_company:>4}")
+    typer.echo(f"  {'with email':<16} {summary.with_email:>4}")
+    typer.echo(f"  {'with website':<16} {summary.with_website:>4}")
 
 
 @intent_app.command("list")

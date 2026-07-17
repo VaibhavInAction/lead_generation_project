@@ -28,6 +28,7 @@ from leadforge.database.repositories import (
     RejectRepository,
     ScrapeRunRepository,
 )
+from leadforge.enrichment.intent_enrich import enrich_intent_lead
 from leadforge.models.base import utcnow
 from leadforge.models.orm import Reject, ScrapeRun
 from leadforge.models.schemas import RawLead, SearchQuery
@@ -168,6 +169,15 @@ class IntentScrapeService:
         lead.post_text = assessment.post_text
         lead.data_quality_score = assessment.data_quality_score
         lead.quality_flags = assessment.quality_flags
+
+        # Phase 8: enrich after cleaning, before scoring. company already carries a
+        # headline-derived value (mapping), so ``or`` fills only when it was blank.
+        enrichment = enrich_intent_lead(
+            post_text=lead.post_text, author_headline=lead.author_headline
+        )
+        lead.company = lead.company or enrichment.company
+        lead.contact_email = enrichment.contact_email
+        lead.website = enrichment.website
 
         with session_scope(self._sessions) as session:
             repo = IntentLeadRepository(session)

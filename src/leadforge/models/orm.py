@@ -109,6 +109,10 @@ class IntentLead(Base, TimestampMixin):
     author_headline: Mapped[str | None] = mapped_column(String(512), default=None)
     company: Mapped[str | None] = mapped_column(String(255), default=None)
 
+    # Enrichment (Phase 8) — heuristics-only, null unless clearly present (README §17).
+    contact_email: Mapped[str | None] = mapped_column(String(320), default=None)
+    website: Mapped[str | None] = mapped_column(String(1024), default=None)
+
     # What they need
     need_text: Mapped[str] = mapped_column(Text)
     # taxonomy: video_editing | marketing | web_dev | design | ...
