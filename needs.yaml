@@ -8,16 +8,19 @@
 #   * Keep it specific: "Google Ads expert" pulls warmer leads than "ads".
 #   * One service per line. More entries = more coverage, but a longer run
 #     (each need is throttled at human speed — see SCRAPE_DELAY_MIN/MAX).
+# Tuned for Digital Nil (digitalnil.com, Pune): SEO, PPC/Google Ads, web design
+# & development, social media, content marketing, branding. Set SEARCH_COUNTRY=in
+# in .env so results weight toward India.
 needs:
   - marketing agency
   - digital marketing agency
-  - social media manager
   - social media agency
-  - marketing consultant
-  - marketing freelancer
-  - content creator
+  - social media manager
   - SEO agency
+  - PPC agency
   - Google Ads expert
-  - email marketing expert
-  - brand strategist
-  - PPC expert
+  - performance marketing agency
+  - web design agency
+  - website developer
+  - content marketing agency
+  - branding agency

@@ -40,7 +40,7 @@ def _build_search_fetcher(settings: Settings) -> SearchFetcher:
                 "SEARCH_ENGINE=serper requires SERPER_API_KEY — set it in .env "
                 "(free key, no card, at https://serper.dev) or use SEARCH_ENGINE=ddg"
             )
-        return SerperSearchFetcher(settings.serper_api_key)
+        return SerperSearchFetcher(settings.serper_api_key, country=settings.search_country)
     if engine == "brave":
         if not settings.brave_api_key:
             raise ValueError(

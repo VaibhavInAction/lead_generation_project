@@ -66,8 +66,11 @@ class SerperSearchFetcher:
 
     domain = "google.serper.dev"
 
-    def __init__(self, api_key: str, *, num: int = 10, timeout: float = 15.0) -> None:
+    def __init__(
+        self, api_key: str, *, country: str = "us", num: int = 10, timeout: float = 15.0
+    ) -> None:
         self._api_key = api_key
+        self._country = country
         self._num = num
         self._timeout = timeout
 
@@ -78,7 +81,7 @@ class SerperSearchFetcher:
         ``qdr`` recency) *only* when ``--since`` maps to a window — sending an
         empty/invalid ``tbs`` is what makes Serper reject the request with HTTP 400.
         """
-        body: dict[str, str | int] = {"q": term, "gl": "us", "num": self._num}
+        body: dict[str, str | int] = {"q": term, "gl": self._country, "num": self._num}
         tbs = serper_tbs(since)
         if tbs is not None:
             body["tbs"] = tbs

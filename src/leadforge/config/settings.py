@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # no card) is the default; Brave needs a card; DDG-HTML soft-blocks (HTTP 202)
     # and is kept only as a keyless fallback.
     search_engine: str = "serper"  # serper | brave | ddg
+    search_country: str = "us"  # Google gl code weighting results: "in" = India, "us" = USA
     serper_api_key: str = ""  # required when SEARCH_ENGINE=serper; never hardcode
     brave_api_key: str = ""  # required when SEARCH_ENGINE=brave; never hardcode
 
