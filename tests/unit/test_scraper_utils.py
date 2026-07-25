@@ -92,6 +92,30 @@ class TestQueries:
         assert terms == ['site:x "need a video editor"', "video editor help"]
 
     @pytest.mark.parametrize(
+        ("need", "expected"),
+        [
+            ("marketing agency", "calling all marketing agencies"),
+            ("SEO expert", "calling all SEO experts"),
+            ("social media manager", "calling all social media managers"),
+        ],
+    )
+    def test_build_search_terms_pluralizes_needs_placeholder(
+        self, need: str, expected: str
+    ) -> None:
+        # "calling all marketing agencys" would find nothing — {needs} must pluralize.
+        assert build_search_terms(need, ["calling all {needs}"]) == [expected]
+
+    def test_real_query_templates_render_for_every_real_need(self) -> None:
+        # The shipped config must produce clean queries — no stray placeholders.
+        from leadforge.scrapers.intent.queries import load_query_templates
+
+        templates = load_query_templates("intent_queries.yaml")
+        for need in load_needs("needs.yaml"):
+            for term in build_search_terms(need, templates):
+                assert "{" not in term, term
+                assert "agencys" not in term, term
+
+    @pytest.mark.parametrize(
         ("since", "code"),
         [("1d", "d"), ("7d", "w"), ("30d", "m"), ("90d", "y"), ("1y", "y"), ("weird", None)],
     )

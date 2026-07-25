@@ -51,6 +51,20 @@ _REQUEST = _compile(
     r"\bcalling for (?:a|an)\b",
     r"(?:^|[.!?\n]\s*)(?:looking for|searching for|seeking)\s+(?:a|an|some|our)\b",
     r"(?:^|[.!?\n]\s*)need (?:a|an|someone|help)\b",
+    # Plural target with no article: "Looking for branding agencies",
+    # "Looking for Performance-Based Influencer Agencies" (docs/example_leads.md).
+    r"(?:^|[.!?\n]\s*)(?:looking for|searching for|seeking)(?:\s+[\w-]+){0,3}\s+"
+    r"(?:agencies|partners|consultants|freelancers|experts|vendors)\b",
+    # Partnership phrasing — how a business asks for a *firm* rather than a person.
+    r"\blooking to partner with\b",
+    r"\bwant to partner with\b",
+    r"\bpartner with us\b",
+    r"\blooking for agency partners\b",
+    r"\bthe right agency partner\b",
+    r"\bgrowth partner\b",
+    r"\b(?:on the lookout for|looking out for)\b",
+    r"\bplanning to appoint\b",
+    r"\bcalling all\b[^.!?\n]{0,30}\b(?:agenc(?:y|ies)|partners?|vendors?|consultants?)\b",
 )
 
 # A concrete thing being asked for — a request needs a target to be a lead
@@ -58,7 +72,7 @@ _REQUEST = _compile(
 _TARGET = _compile(
     r"\b(?:agenc(?:y|ies)|freelancers?|contractors?|consultants?|marketers?|"
     r"strateg(?:ist|ists|y)|specialists?|experts?|editors?|designers?|developers?|"
-    r"writers?|creators?|managers?|help|partner|vendor|support|someone)\b",
+    r"writers?|creators?|managers?|help|partners?|vendors?|support|someone)\b",
 )
 
 # Call-to-action that reinforces a genuine ask (used with a target present).
@@ -69,6 +83,39 @@ _CTA = _compile(
     r"\bsend (?:me )?(?:your |a )?(?:portfolio|showreel|reel|resume|cv|note|rates|proposal)\b",
     r"\bif you(?:'d| would) like to be considered\b",
     r"\bhappy to share (?:the )?(?:scope|budget|brief|details)\b",
+    # "Send us your pitch" — how these buyers actually invite a pitch.
+    r"\b(?:share|send|email|mail|dm)\b[^.!?\n]{0,24}\b"
+    r"(?:company profile|agency profile|pitch deck|portfolio|case studies)\b",
+    r"\bmail (?:me|us) at\b",
+    r"\btag (?:them|your agency|an agency|someone)\b",
+)
+
+# --- "Hiring an AGENCY" is a client request, not a job ad -------------------
+# The single biggest miss we saw: "We're Hiring: Performance Marketing Agency",
+# "#AgencyHiring", "#Hiring" + "looking for a marketing agency" are businesses
+# buying services, not employers hiring staff. When the thing being hired or
+# sought is a *firm*, the job_posting and recruiter rules stand down.
+_FIRM_HIRE = _compile(
+    r"\bhiring\b[^.!?\n]{0,60}\bagenc(?:y|ies)\b",  # "We're Hiring: … Marketing Agency"
+    r"\bagenc(?:y|ies)\s*hiring\b",  # "#AgencyHiring"
+    r"\bhiring\s*an?\s*agenc(?:y|ies)\b",  # "#HiringAnAgency"
+    r"\b(?:looking (?:for|to partner with)|partner with|appoint|onboard|engage)\b"
+    r"[^.!?\n]{0,60}\b(?:agenc(?:y|ies)|agency partners?|vendors?|consultants?)\b",
+)
+
+# …unless the post also hires *people*: a role to join, employment terms, or a
+# job title. Staff language always wins, so genuine job ads stay job_posting even
+# when they mention an agency ("hiring a Marketing Manager to join our agency").
+_STAFF_HIRE = _compile(
+    r"\bto join (?:us|them|our|the|my)\b",
+    r"\bjoin (?:our|the|my)(?:\s+\w+){0,3}\s+team\b",
+    r"\b(?:full|part)[\s-]?time\b",
+    r"\bapply (?:now|here|today|online|via|at|using|by|through)\b",
+    r"\b(?:send|submit|share|email|drop)(?:\s+\w+){0,4}\s+(?:cv|résumé|resume)\b",
+    r"\bsalary\b",
+    r"\bbenefits package\b",
+    r"\b(?:applicants?|candidates?)\b",
+    r"\b(?:manager|specialist|executive|associate|coordinator|analyst|intern)\b",
 )
 
 # --- job_posting: classic employer hiring staff -----------------------------
@@ -111,7 +158,8 @@ _SELFPROMO = _compile(
     r"\bwhy (?:hire|choose|work with|you (?:need|should))\b",
     r"\bhow to (?:find|choose|hire|pick|select|vet)\b[^.!?\n]*\b(?:the right|a|an|your)\b",
     r"\b\d+\s+(?:reasons|benefits|signs|tips|ways|things)\b",
-    r"\btop\s+\d+\b",
+    # Listicle *headline* only — mid-sentence "your top 3 case studies" is a real ask.
+    r"(?:^|[.!?\n]\s*)top\s+\d+\b",
     r"\bbenefits of (?:hiring|working with|outsourcing to)\b",
     r"\bhere are (?:the|\d+)\b",
 )
@@ -121,7 +169,7 @@ _CONTENT_NOISE = _compile(
     # opinion / rhetorical openers
     r"\bone thing i(?:['’]ve| have) been thinking\b",
     r"\byou know (?:those|that|when)\b",
-    r"\bhere['’]s why\b",
+    r"\bhere['’]s (?:why|how)\b",
     r"\bwhen a (?:business owner|company|founder|client)\b",
     r"\b(?:hot take|unpopular opinion|controversial opinion)\b",
     r"\blet['’]s talk about\b",
@@ -210,21 +258,29 @@ def classify_post(post_text: str | None, *, author_name: str | None = None) -> C
     # A request needs a target; a CTA alongside a target also reads as a genuine ask.
     has_request = bool(request and target) or bool(cta and target)
 
+    firm_hire = _hits(text, _FIRM_HIRE)
+    staff_hire = _hits(text, _STAFF_HIRE)
+    # Hiring an agency, with no staff-hiring language anywhere: this is a business
+    # buying services, so the job_posting / recruiter rules must not fire.
+    hiring_a_firm = bool(firm_hire) and not staff_hire
+
     signals: dict[str, list[str]] = {
         "request": request,
         "target": target,
         "cta": cta,
         "job": job,
         "recruiter": recruiter,
+        "firm_hire": firm_hire,
+        "staff_hire": staff_hire,
         "company_author": company_author,
         "selfpromo": selfpromo,
         "content_noise": noise,
     }
 
     # Precedence: strongest / most specific junk first.
-    if job:
+    if job and not hiring_a_firm:
         category = PostCategory.JOB_POSTING
-    elif recruiter:
+    elif recruiter and not hiring_a_firm:
         category = PostCategory.RECRUITER_STAFFING
     elif company_author or selfpromo:
         category = PostCategory.COMPETITOR_SELFPROMO

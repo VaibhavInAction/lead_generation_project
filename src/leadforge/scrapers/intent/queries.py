@@ -63,10 +63,25 @@ def load_needs(path: str | Path) -> list[str]:
     return needs
 
 
+def _pluralize(need: str) -> str:
+    """English plural of a need phrase: "marketing agency" -> "marketing agencies"."""
+    if need.endswith("y") and not need.endswith(("ay", "ey", "oy", "uy")):
+        return need[:-1] + "ies"
+    if need.endswith(("s", "x", "z", "ch", "sh")):
+        return need + "es"
+    return need + "s"
+
+
 def build_search_terms(need: str, templates: list[str]) -> list[str]:
-    """Substitute ``need`` into every template, yielding one query string each."""
+    """Substitute ``need`` into every template, yielding one query string each.
+
+    ``{need}`` is the phrase as written; ``{needs}`` is its plural, so a template
+    can search for "calling all marketing agencies" — plural asks are how these
+    posts are actually worded (docs/example_leads.md).
+    """
     need = need.strip()
-    return [t.replace("{need}", need) for t in templates]
+    # {needs} first: replacing {need} first would leave "…agencys" behind.
+    return [t.replace("{needs}", _pluralize(need)).replace("{need}", need) for t in templates]
 
 
 def recency_code(since: str) -> str | None:

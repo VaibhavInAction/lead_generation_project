@@ -154,6 +154,183 @@ JUNK_POSTS: list[tuple[str, str, PostCategory]] = [
 ]
 
 
+# --- The 19 gold-standard leads (docs/example_leads.md) -----------------------
+# Real posts Digital Nil collected by hand: businesses publicly looking to hire or
+# partner with an *agency*. Every one MUST classify as client_lead — this list is
+# the product's acceptance bar, so a regression here is a regression in the tool.
+GOLD_STANDARD_LEADS: list[tuple[str, str]] = [
+    (
+        "Zoya Irfan",
+        "We're Hiring: Performance Marketing Agency\n\n"
+        "We're looking to partner with an experienced Performance Marketing Agency "
+        "for the digital launch of an upcoming residential real estate project in "
+        "Gurugram. Requirements: Google Ads, Meta Ads, Lead Generation, Performance "
+        "Campaign Management, Proven Real Estate Experience.\n"
+        "Interested agencies, please share your company profile, real estate "
+        "portfolio, case studies, and commercials via DM or email.\n"
+        "#PerformanceMarketing #RealEstateMarketing #AgencyHiring #Gurugram",
+    ),
+    (
+        "Vivek P. Bajaj",
+        "We are currently looking to partner with top-tier agencies to drive the next "
+        "phase of growth and brand visibility for Clover Builders.\n"
+        "I am looking out for agencies that specialize in: 1. Performance Marketing: "
+        "ROI-driven campaigns 2. Creative & Media\n"
+        "Mandatory Requirement: Proven, prior experience in the real estate sector.\n"
+        "You can mail me at vivek.bajaj@cloverbuilders.com with your portfolio and "
+        "relevant case studies.",
+    ),
+    (
+        "Isaac Andrew",
+        "Calling All Digital Marketing Agencies | Immediate Onboarding for F&B Brand\n\n"
+        "We're scaling up and looking for a powerhouse Digital Marketing Agency ready "
+        "to hit the ground running. If your agency knows how to make F&B brands go "
+        "viral, we want to partner with you.\n"
+        "How to Apply / Pitch: Tag your agency in the comments below. DM us directly "
+        "with a brief portfolio or your top 3 F&B case studies.\n"
+        "#HiringAnAgency #AgencyPitch",
+    ),
+    (
+        "Rhea Guliani",
+        "Looking for branding agencies specialising in B2B and industrial sectors, "
+        "with experience in creating scalable, standardised visual systems.\n"
+        "Please email your portfolio to rheag@aehrmediahouse.com",
+    ),
+    (
+        "Vani Dhaka",
+        "We're looking for a marketing agency to partner with us for the launch and "
+        "growth of CalmForge. We're looking for an agency with proven expertise in: "
+        "Performance Marketing (Meta & Google Ads), Brand Strategy & Positioning.\n"
+        "Please send your pitch deck, relevant case studies, client portfolio, and "
+        "proposed approach to: calmforge.wellness@gmail.com\n"
+        "#Hiring #MarketingAgency #PerformanceMarketing #D2C",
+    ),
+    (
+        "Inderpreet Kaur",
+        "Looking for a Retail Digital Growth Partner\n"
+        "DRYCO is looking for a results-driven agency to help grow sales across our "
+        "retail stores. We're looking for expertise in: Google Business Profile "
+        "optimization, Local SEO, Google & Meta Ads, Instagram/Facebook content.\n"
+        "If you have proven experience scaling multi-location retail brands, please "
+        "DM me your case studies.\n"
+        "Fellow LinkedIn connections: If you know a great agency or consultant, "
+        "please tag them in the comments.",
+    ),
+    (
+        "Atharva Patil",
+        "We're looking for agency partners as Malgudi scales up across Mumbai and the "
+        "UAE. We're on the lookout for the right partners. We're looking for an agency "
+        "that can own a campaign end to end.\n"
+        "If this sounds like your agency, or you know one that fits the bill, send me "
+        "a DM. #AgencySearch #MarketingPartnership",
+    ),
+    (
+        "Heena Hariawala",
+        "Looking for a Performance Marketing Agency\n"
+        "We're looking for a results-driven performance marketing agency with a proven "
+        "track record of scaling D2C/e-commerce brands. Expertise required: Meta Ads, "
+        "Google Ads, Creative strategy & CRO, ROAS-focused growth.\n"
+        "We're looking for a long-term growth partner, not just an agency that manages "
+        "campaigns. Please DM me or share your agency profile and case studies.",
+    ),
+    (
+        "Rushil Bhardwaj",
+        "I am looking for a Goa-based social media agency with proven expertise in "
+        "marketing F&B brands, restaurants, bars or microbreweries.\n"
+        "If your agency has a strong portfolio or you know someone who does, please "
+        "tag them in the comments or send me a DM.",
+    ),
+    (
+        "Aman raj chaurasiya",
+        "Looking for a Creative Social Media & Digital Marketing Agency!\n"
+        "As Growbro.ai continues to scale, we're looking for a long-term agency partner "
+        "that can help us build one of the strongest AI brands in India.\n"
+        "Please email your company profile, portfolio, case studies, pricing, and "
+        "previous work to partnership@growbro.ai",
+    ),
+    (
+        "Dhanushka Fernando",
+        "FINEZ is planning to appoint a top-tier Performance Marketing Agency to lead "
+        "our digital growth strategy for our furniture and interiors range.\n"
+        "If you've worked with an agency that consistently delivers outstanding "
+        "results, please tag them in the comments.",
+    ),
+    (
+        "Naren Kholiya",
+        "We at Pristyn Care are looking to partner with the best AEO/GEO experts & "
+        "agencies. We're open to multiple engagement models, including pilot, "
+        "project-based, retainer, fractional, contractual, or performance-linked.\n"
+        "If this sounds like you, drop a comment or DM me with relevant case studies.",
+    ),
+    (
+        "Sibbi Vinod Nair",
+        "Looking for a Social Media Marketing Agency\n"
+        "We're looking for a B2B-focused Social Media Marketing Agency to partner with "
+        "us at Credeksa. If your agency has experience working with B2B, HR, "
+        "Recruitment or SaaS brands, email: vendors@credeksa.com",
+    ),
+    (
+        "Karthik Maragalale",
+        "I am looking for an experienced SEO agency to help improve our organic "
+        "visibility, search rankings, and generate qualified B2B leads for Desapex.\n"
+        "Share your company profile and case studies via email at marketing@desapex.com",
+    ),
+    (
+        "Saiteja Girnala",
+        "We're looking for a #digitalmarketingagency in #Hyderabad. We're looking for "
+        "the right agency partner to work alongside our existing in-house digital team.\n"
+        "Think your agency is the right fit? Mail us at marketing@dakshinstories.com\n"
+        "Or tag an agency you'd recommend!",
+    ),
+    (
+        "Ankita Jain",
+        "Looking for Performance-Based Influencer Agencies!\n"
+        "We're scaling GoPaisa Instant Money and want to partner with influencer "
+        "marketing agencies who are ready to work on a performance model.",
+    ),
+    (
+        "Ramadhan Eka Putra",
+        "Looking for an AI video production agency! Need a team that can move fast and "
+        "has experience producing AI-generated video content for FMCG brands.\n"
+        "If you've worked with FMCG clients before, please send me your portfolio via DM.",
+    ),
+    (
+        "Sunita Pradhan",
+        "Looking for a Digital Marketing Agency\n"
+        "We are looking to connect with digital marketing agencies experienced in "
+        "managing and promoting GIG profiles and platforms. If you have relevant "
+        "experience and expertise, share your company profile with us.",
+    ),
+    (
+        "Aastha Jha",
+        "We're looking for an agency that can help us answer that. Not just with "
+        "performance marketing, but with ideas.\n"
+        "If you've built brands people remember, we'd love to see your work. DM me or "
+        "tag someone who should be in this conversation.",
+    ),
+]
+
+# Genuine *staff* hiring — the over-correction guard for the agency-hiring fix.
+# These must stay job_posting even after "hiring an agency" is allowed through.
+STAFF_JOB_POSTS: list[tuple[str, str]] = [
+    (
+        "Priya Menon",
+        "We're hiring a Marketing Manager to join our team in Bangalore. Full-time, "
+        "competitive salary. Apply now!",
+    ),
+    (
+        "Rohit Sharma",
+        "We're hiring! Looking for a Performance Marketing Specialist to join us. "
+        "Send your CV to careers@example.com",
+    ),
+    (
+        "Anita Desai",
+        "New role: Social Media Executive. Full-time position with benefits package. "
+        "Interested candidates, apply here.",
+    ),
+]
+
+
 class TestClassifyPost:
     @pytest.mark.parametrize("author, post", GENUINE_LEADS)
     def test_genuine_requests_are_client_leads(self, author: str, post: str) -> None:
@@ -177,6 +354,40 @@ class TestClassifyPost:
         ]
         assert len(kept) == 7
         assert len(dropped) == 8
+
+    @pytest.mark.parametrize("author, post", GOLD_STANDARD_LEADS)
+    def test_gold_standard_leads_are_client_leads(self, author: str, post: str) -> None:
+        # docs/example_leads.md — the agency's hand-picked bar. All 19 must pass.
+        result = classify_post(post, author_name=author)
+        assert result.category is PostCategory.CLIENT_LEAD, (author, result.signals)
+
+    def test_all_nineteen_gold_standard_leads_survive(self) -> None:
+        kept = [
+            a for a, p in GOLD_STANDARD_LEADS if classify_post(p, author_name=a).category.is_client
+        ]
+        assert len(kept) == 19, [a for a, _ in GOLD_STANDARD_LEADS if a not in kept]
+
+    @pytest.mark.parametrize("author, post", STAFF_JOB_POSTS)
+    def test_staff_hiring_is_still_job_posting(self, author: str, post: str) -> None:
+        # Guard against over-correcting the agency-hiring fix: hiring *people*
+        # (join our team / full-time / apply now / send CV / a role title) is a job ad.
+        result = classify_post(post, author_name=author)
+        assert result.category is PostCategory.JOB_POSTING, (author, result.signals)
+
+    def test_hiring_an_agency_is_a_client_lead_not_a_job_posting(self) -> None:
+        # "We're Hiring" + an *agency* as the object hired — the headline bug.
+        result = classify_post(
+            "We're Hiring: Performance Marketing Agency. We're looking to partner "
+            "with an experienced agency for our launch."
+        )
+        assert result.category is PostCategory.CLIENT_LEAD, result.signals
+
+    def test_staff_hiring_wins_even_when_an_agency_is_mentioned(self) -> None:
+        # The exemption must not rescue a real job ad that happens to say "agency".
+        result = classify_post(
+            "We're hiring a Marketing Manager to join our agency. Full-time, apply now!"
+        )
+        assert result.category is PostCategory.JOB_POSTING, result.signals
 
     def test_client_lead_seeking_agency(self) -> None:
         result = classify_post(CLIENT_POST)

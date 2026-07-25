@@ -2,14 +2,20 @@
 #
 # Phrases live in config, not code: adding a niche means adding phrases, not
 # editing Python. `{need}` is substituted with each service from needs.yaml
-# (or the CLI --need value). Each template becomes one search-engine query, so
-# templates x needs = searches per batch — keep this list lean.
+# (or the CLI --need value); `{needs}` is its plural ("marketing agencies").
+# Each template becomes one search-engine query, so templates x needs =
+# searches per batch — keep this list lean.
 #
 # Tuned from live results: quoted phrases match as substrings of longer posts,
 # so "looking for a {need}" already catches "we are looking for a…" and
 # "I'm looking for a…" — no need for separate person variants. Recommendation
 # phrasings ("can anyone recommend…") almost never surface in search indexes
 # but are kept once because when they DO hit, the intent is red-hot.
+#
+# The partnership templates below come from docs/example_leads.md: real buyers
+# ask to "partner with" an agency at least as often as they "look for" one, and
+# those posts were invisible to the phrasings above. Each template costs ONE
+# search per need (templates x needs = searches per batch), so add sparingly.
 templates:
   - 'site:linkedin.com/posts "looking for a {need}"'
   - 'site:linkedin.com/posts "searching for a {need}"'
@@ -17,3 +23,7 @@ templates:
   - 'site:linkedin.com/posts "in need of a {need}"'
   - 'site:linkedin.com/posts "looking to hire a {need}"'
   - 'site:linkedin.com/posts "can anyone recommend a {need}"'
+  # Partnership phrasing — businesses seeking a firm, not a person.
+  - 'site:linkedin.com/posts "looking to partner with a {need}"'
+  - 'site:linkedin.com/posts "looking for {need} partners"'
+  - 'site:linkedin.com/posts "calling all {needs}"'
