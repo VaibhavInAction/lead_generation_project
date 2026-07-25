@@ -67,38 +67,69 @@ If `doctor` shows all green, you're ready. ✅
 
 ---
 
-## 3. Everyday use — the 3-step routine
+## 3. Everyday use — one command
 
-Every time you want fresh leads, do these three steps. (Make sure the terminal
-shows `(.venv)` at the start of the line — if not, type `.venv\Scripts\activate`
-first.)
+### The easy way: double-click `run_daily.bat`
 
-### Step 1 — Find leads
-```
-leadforge intent scrape-all --since 7d
-```
-This searches for people asking for **all** your services (from `needs.yaml`),
-posted in the last 7 days. **This takes a while** (there are deliberate pauses so
-LinkedIn doesn't block you) — let it run. Change `7d` to `3d` for the last 3 days,
-`30d` for a month.
+In the project folder there's a file called **`run_daily.bat`**. **Double-click
+it.** That's the whole routine — it opens a window, does everything, and stays
+open at the end so you can read the summary.
 
-### Step 2 — Rank them
-```
-leadforge intent score
-```
-This filters out the junk and ranks the real client leads from best to worst.
+**It takes a while** (there are deliberate pauses so LinkedIn doesn't block you) —
+let it run. When it finishes you'll see:
 
-### Step 3 — Get your spreadsheet
 ```
-leadforge intent export --format xlsx --max-age 7
+========================================================================
+Daily run complete.
+  new leads found    14
+  client leads       5
+  Excel file         C:\...\exports\intent_leads_20260725_101500.xlsx
 ```
-This creates an Excel file in the **`exports`** folder with your client leads from
-the last 7 days, best ones first.
 
-Open that file, and start reaching out!
+Open that Excel file and start reaching out. 🎉
+
+### Or type it yourself
+
+Same thing from the terminal (make sure the line starts with `(.venv)` — if not,
+type `.venv\Scripts\activate` first):
+
+```
+leadforge daily
+```
+
+It does four things in order and tells you where it is at each step:
+
+| Step | What happens |
+| --- | --- |
+| 1. Find | Searches for people asking for **all** your services (from `needs.yaml`), posted in the last 3 days. |
+| 2. Rank | Filters out the junk and ranks the real client leads, best first. |
+| 3. Fill in | Pulls out company, email, and website where the post mentions them. |
+| 4. Export | Writes an Excel file to the **`exports`** folder — client leads from the last 7 days. |
+
+You can change the two windows:
+
+```
+leadforge daily --since 7d --max-age 14    # search back 7 days, export leads up to 14 days old
+leadforge daily --limit-per-need 10        # stop at 10 posts per service (a quicker run)
+```
 
 > 💡 To just peek at the leads in the terminal without making a file:
 > `leadforge intent list`
+
+<details>
+<summary><b>Advanced</b> — running the steps one at a time</summary>
+
+`leadforge daily` is exactly these four commands in order. Run them individually
+if you want to redo just one part (e.g. re-rank without searching again):
+
+```
+leadforge intent scrape-all --since 3d          # step 1: find
+leadforge intent score                          # step 2: rank
+leadforge intent enrich                         # step 3: fill in company/email/website
+leadforge intent export --format xlsx --max-age 7   # step 4: export
+```
+
+</details>
 
 ---
 
@@ -167,6 +198,7 @@ leadforge intent export --format csv                               # export as C
 | Problem | Fix |
 | --- | --- |
 | `leadforge` not recognized | Type `.venv\Scripts\activate` first (you should see `(.venv)`). |
+| `run_daily.bat` says "Setup is not finished" | The `.venv` folder is missing — redo section 2, Step 3, in the project folder. |
 | A link shows a LinkedIn sign-in page | Log into LinkedIn in your browser, then click again. The link is fine. |
 | Search returns 0 results | Normal for a narrow window — try a longer `--since` (e.g. `30d`) or different services in `needs.yaml`. |
 | "API key" error | Check your `SERPER_API_KEY` line in `.env` — no quotes, no extra spaces. |

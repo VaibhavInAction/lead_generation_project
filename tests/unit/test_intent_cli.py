@@ -1,4 +1,4 @@
-"""CLI wiring for `leadforge intent scrape` / `intent list` (README §21)."""
+"""CLI wiring for `leadforge intent scrape` / `intent list` / `daily` (README §21)."""
 
 from __future__ import annotations
 
@@ -265,3 +265,132 @@ def test_intent_export_rejects_bad_format(tmp_path, monkeypatch) -> None:
 
     assert result.exit_code == 1
     assert "unsupported --format" in result.output
+
+
+# --- leadforge daily (the one-command routine) --------------------------------
+
+
+def _stub_daily_services(
+    monkeypatch, calls: list[str], *, scrape_status: str = "completed"
+) -> None:
+    """Replace the three services `daily` orchestrates with fakes that log their call."""
+    from leadforge.services.intent_enrich import EnrichSummary
+    from leadforge.services.intent_score import ScoreSummary
+
+    class FakeScrape:
+        def run(self, *, need, since, limit, resume) -> RunSummary:
+            calls.append(f"scrape:{need}")
+            return RunSummary(
+                run_id=f"r-{len(calls)}",
+                source="linkedin_posts",
+                query=need,
+                status=scrape_status,
+                leads_found=3,
+                stored_new=2,
+            )
+
+    class FakeScore:
+        def run(self) -> ScoreSummary:
+            calls.append("score")
+            return ScoreSummary(total=4, scored=4, by_category={PostCategory.CLIENT_LEAD.value: 3})
+
+    class FakeEnrich:
+        def run(self) -> EnrichSummary:
+            calls.append("enrich")
+            return EnrichSummary(total=4, with_company=2, with_email=1, with_website=1)
+
+    monkeypatch.setattr(
+        "leadforge.services.intent_scrape.build_intent_scrape_service",
+        lambda source, settings: FakeScrape(),
+    )
+    monkeypatch.setattr(
+        "leadforge.services.intent_score.build_intent_score_service",
+        lambda settings, **kwargs: FakeScore(),
+    )
+    monkeypatch.setattr(
+        "leadforge.services.intent_enrich.build_intent_enrich_service",
+        lambda settings, **kwargs: FakeEnrich(),
+    )
+
+
+def _daily_env(tmp_path, monkeypatch, leads: list[IntentLead]) -> None:
+    """Point DATABASE_URL / NEEDS_PATH / EXPORT_DIR at a throwaway sandbox."""
+    db = tmp_path / "leads.db"
+    _make_db(db, leads)
+    needs_file = tmp_path / "needs.yaml"
+    needs_file.write_text("needs:\n  - marketing agency\n  - SEO agency\n", encoding="utf-8")
+
+    monkeypatch.delenv("SOURCES_ENABLED", raising=False)  # default enables linkedin_posts
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    monkeypatch.setenv("NEEDS_PATH", str(needs_file))
+    monkeypatch.setenv("EXPORT_DIR", str(tmp_path / "exports"))
+    get_settings.cache_clear()
+
+
+def test_daily_runs_every_stage_in_order_and_prints_summary(tmp_path, monkeypatch) -> None:
+    # A fresh client lead, so the export step has something to write.
+    _daily_env(tmp_path, monkeypatch, [_intent("Casey Lee", "casey_1", datetime.now(UTC))])
+    calls: list[str] = []
+    _stub_daily_services(monkeypatch, calls)
+
+    result = runner.invoke(app, ["daily"])
+
+    assert result.exit_code == 0, result.output
+    # Every need scraped first, then score, then enrich — export is the CLI's own step.
+    assert calls == ["scrape:marketing agency", "scrape:SEO agency", "score", "enrich"]
+    # Each stage narrates itself, in order.
+    steps = [result.output.index(f"[{n}/4]") for n in (1, 2, 3, 4)]
+    assert steps == sorted(steps)
+    # Closing summary: new leads (2 per need), client leads, and the file written.
+    assert "Daily run complete." in result.output
+    assert "new leads found    4" in result.output
+    assert "client leads       3" in result.output
+    exported = list((tmp_path / "exports").glob("intent_leads_*.xlsx"))
+    assert len(exported) == 1
+    assert str(exported[0].resolve()) in result.output
+
+
+def test_daily_reports_when_no_client_leads_to_export(tmp_path, monkeypatch) -> None:
+    _daily_env(tmp_path, monkeypatch, [])  # empty DB — nothing to export
+    calls: list[str] = []
+    _stub_daily_services(monkeypatch, calls)
+
+    result = runner.invoke(app, ["daily"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == ["scrape:marketing agency", "scrape:SEO agency", "score", "enrich"]
+    assert "no client leads in 7 day(s)" in result.output
+
+
+def test_daily_passes_its_options_through(tmp_path, monkeypatch) -> None:
+    _daily_env(tmp_path, monkeypatch, [])
+    seen: list[dict[str, object]] = []
+
+    class FakeScrape:
+        def run(self, *, need, since, limit, resume) -> RunSummary:
+            seen.append({"since": since, "limit": limit})
+            return RunSummary(run_id="r", source="linkedin_posts", query=need, status="completed")
+
+    _stub_daily_services(monkeypatch, [])
+    monkeypatch.setattr(
+        "leadforge.services.intent_scrape.build_intent_scrape_service",
+        lambda source, settings: FakeScrape(),
+    )
+
+    result = runner.invoke(app, ["daily", "--since", "30d", "--limit-per-need", "5"])
+
+    assert result.exit_code == 0, result.output
+    assert seen == [{"since": "30d", "limit": 5}] * 2
+
+
+def test_daily_stops_scraping_on_compliance_abort(tmp_path, monkeypatch) -> None:
+    _daily_env(tmp_path, monkeypatch, [])
+    calls: list[str] = []
+    _stub_daily_services(monkeypatch, calls, scrape_status="aborted")
+
+    result = runner.invoke(app, ["daily"])
+
+    # First need aborts the batch, but the remaining stages still run on what's stored.
+    assert calls == ["scrape:marketing agency", "score", "enrich"]
+    assert "Scraping stopped early" in result.output
+    assert result.exit_code == 1

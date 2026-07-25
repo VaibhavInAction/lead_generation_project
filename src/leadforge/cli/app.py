@@ -18,6 +18,7 @@ from leadforge.utils.logging import configure_logging
 
 if TYPE_CHECKING:
     from leadforge.scrapers.base import RunSummary
+    from leadforge.services.intent_scrape import IntentScrapeService
 
 app = typer.Typer(
     name="leadforge",
@@ -221,6 +222,40 @@ def _print_run_summary(summary: object) -> None:
         typer.echo(f"  {'snapshots':<18} {len(summary.snapshots)} (logs/snapshots/)")
 
 
+def _build_scrape_service(source: str, settings: Settings, *, command: str) -> IntentScrapeService:
+    """Resolve the scraper for ``source``, exiting cleanly if it's switched off or unbuildable.
+
+    ``command`` only labels the error message (e.g. "intent scrape-all", "daily").
+    """
+    from leadforge.scrapers.registry import is_enabled
+    from leadforge.services.intent_scrape import build_intent_scrape_service
+
+    if not is_enabled(source, settings):
+        typer.secho(
+            f"{command}: source {source!r} is not enabled "
+            f"(SOURCES_ENABLED={settings.sources_enabled!r}).",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        return build_intent_scrape_service(source, settings)
+    except (KeyError, PermissionError, FileNotFoundError, ValueError) as exc:
+        typer.secho(f"{command}: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+
+
+def _load_needs(path: str, *, command: str) -> list[str]:
+    """Load the services list from a needs.yaml, exiting cleanly if it can't be read."""
+    from leadforge.scrapers.intent.queries import load_needs
+
+    try:
+        return load_needs(path)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.secho(f"{command}: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+
+
 @intent_app.command("scrape")
 def intent_scrape(
     need: str = typer.Option(
@@ -236,23 +271,8 @@ def intent_scrape(
     ),
 ) -> None:
     """Mine public LinkedIn posts stating a need and store them as intent leads (README §13.1)."""
-    from leadforge.scrapers.registry import is_enabled
-    from leadforge.services.intent_scrape import build_intent_scrape_service
-
     settings = get_settings()
-    if not is_enabled(source, settings):
-        typer.secho(
-            f"intent scrape: source {source!r} is not enabled "
-            f"(SOURCES_ENABLED={settings.sources_enabled!r}).",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
-
-    try:
-        service = build_intent_scrape_service(source, settings)
-    except (KeyError, PermissionError, FileNotFoundError, ValueError) as exc:
-        typer.secho(f"intent scrape: {exc}", fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    service = _build_scrape_service(source, settings, command="intent scrape")
 
     typer.echo(f"[{source}] mining '{need}' (since {since})…")
     summary = service.run(need=need, since=since, limit=limit, resume=resume)
@@ -270,6 +290,34 @@ def _summary_line(summary: RunSummary) -> str:
         f"updated={summary.stored_updated:>3}  rejects={summary.rejects:>3}  "
         f"errors={summary.errors:>3}  [{summary.status}]"
     )
+
+
+def _scrape_needs(
+    service: IntentScrapeService,
+    needs: list[str],
+    *,
+    source: str,
+    since: str,
+    limit_per_need: int | None,
+    resume: bool,
+) -> tuple[list[tuple[str, RunSummary]], bool]:
+    """Scrape every need in turn, narrating each. Returns (summaries, stopped-early?).
+
+    A compliance abort stops the batch: we report and stop, never evade (README §6).
+    """
+    summaries: list[tuple[str, RunSummary]] = []
+    for need in needs:
+        typer.echo(f"\n[{source}] '{need}'")
+        summary = service.run(need=need, since=since, limit=limit_per_need, resume=resume)
+        typer.echo("  " + _summary_line(summary))
+        summaries.append((need, summary))
+        if summary.status == "aborted":
+            typer.secho(
+                "  " + (summary.message or "run aborted (compliance stop)."),
+                fg=typer.colors.YELLOW,
+            )
+            return summaries, True
+    return summaries, False
 
 
 def _print_batch_totals(summaries: list[tuple[str, RunSummary]]) -> None:
@@ -319,47 +367,20 @@ def intent_scrape_all(
     by post_url across the whole batch (DB upsert), so a post found under two
     services is stored once.
     """
-    from leadforge.scrapers.intent.queries import load_needs
-    from leadforge.scrapers.registry import is_enabled
-    from leadforge.services.intent_scrape import build_intent_scrape_service
-
     settings = get_settings()
-    if not is_enabled(source, settings):
-        typer.secho(
-            f"intent scrape-all: source {source!r} is not enabled "
-            f"(SOURCES_ENABLED={settings.sources_enabled!r}).",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
-
     path = needs_file or settings.needs_path
-    try:
-        needs = load_needs(path)
-    except (FileNotFoundError, ValueError) as exc:
-        typer.secho(f"intent scrape-all: {exc}", fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
-
-    try:
-        service = build_intent_scrape_service(source, settings)
-    except (KeyError, PermissionError, FileNotFoundError, ValueError) as exc:
-        typer.secho(f"intent scrape-all: {exc}", fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    needs = _load_needs(path, command="intent scrape-all")
+    service = _build_scrape_service(source, settings, command="intent scrape-all")
 
     typer.echo(f"Scraping {len(needs)} service(s) from {path} (since {since})…")
-    summaries: list[tuple[str, RunSummary]] = []
-    aborted = False
-    for need in needs:
-        typer.echo(f"\n[{source}] '{need}'")
-        summary = service.run(need=need, since=since, limit=limit_per_need, resume=resume)
-        typer.echo("  " + _summary_line(summary))
-        summaries.append((need, summary))
-        if summary.status == "aborted":
-            aborted = True
-            typer.secho(
-                "  " + (summary.message or "run aborted (compliance stop)."),
-                fg=typer.colors.YELLOW,
-            )
-            break
+    summaries, aborted = _scrape_needs(
+        service,
+        needs,
+        source=source,
+        since=since,
+        limit_per_need=limit_per_need,
+        resume=resume,
+    )
 
     _print_batch_totals(summaries)
     if aborted:
@@ -572,6 +593,46 @@ def intent_list(
     typer.echo(f"\nShowing {len(rows)} of {total} intent lead(s) [{scope}], ranked by lead_score.")
 
 
+def _write_intent_export(
+    settings: Settings,
+    *,
+    fmt: str,
+    output: str | None,
+    category: str | None,
+    newer_than: datetime | None,
+) -> tuple[Path, int] | None:
+    """Write the ranked lead list to a file. Returns (path, rows), or ``None`` if empty."""
+    from leadforge.database import create_db_engine, create_session_factory, session_scope
+    from leadforge.database.repositories import IntentLeadRepository
+    from leadforge.exports.intent import INTENT_COLUMNS, write_intent_leads
+
+    engine = create_db_engine(settings)
+    session_factory = create_session_factory(engine)
+    try:
+        with session_scope(session_factory) as session:
+            repo = IntentLeadRepository(session)
+            # Ranked by lead_score desc; materialized so writing needs no ORM access.
+            rows = [
+                {column: getattr(lead, column) for column in INTENT_COLUMNS}
+                for lead in repo.list_ranked(category=category, newer_than=newer_than)
+            ]
+    finally:
+        engine.dispose()
+
+    if not rows:
+        return None
+
+    if output is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = Path(settings.export_dir) / f"intent_leads_{timestamp}.{fmt}"
+    else:
+        out_path = Path(output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    write_intent_leads(rows, out_path, fmt)
+    return out_path, len(rows)
+
+
 @intent_app.command("export")
 def intent_export(
     fmt: str = typer.Option("csv", "--format", help="Output format: csv | xlsx."),
@@ -592,10 +653,6 @@ def intent_export(
     Defaults to client leads only — the actual outreach list — sorted by
     ``lead_score`` desc. Pass ``--category all`` (or a specific one) to widen it.
     """
-    from leadforge.database import create_db_engine, create_session_factory, session_scope
-    from leadforge.database.repositories import IntentLeadRepository
-    from leadforge.exports.intent import INTENT_COLUMNS, write_intent_leads
-
     fmt_norm = fmt.strip().lower()
     if fmt_norm not in ("csv", "xlsx"):
         typer.secho(
@@ -605,33 +662,96 @@ def intent_export(
         raise typer.Exit(code=1)
 
     cat_filter = _resolve_category(category)
-    newer_than = _newer_than(max_age)
+    written = _write_intent_export(
+        get_settings(),
+        fmt=fmt_norm,
+        output=output,
+        category=cat_filter,
+        newer_than=_newer_than(max_age),
+    )
 
-    settings = get_settings()
-    engine = create_db_engine(settings)
-    session_factory = create_session_factory(engine)
-    try:
-        with session_scope(session_factory) as session:
-            repo = IntentLeadRepository(session)
-            # Ranked by lead_score desc; materialized so writing needs no ORM access.
-            rows = [
-                {column: getattr(lead, column) for column in INTENT_COLUMNS}
-                for lead in repo.list_ranked(category=cat_filter, newer_than=newer_than)
-            ]
-    finally:
-        engine.dispose()
-
-    if not rows:
+    if written is None:
         scope = "all categories" if cat_filter is None else cat_filter
         typer.echo(f"No intent leads to export (category={scope}).")
         return
 
-    if output is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = Path(settings.export_dir) / f"intent_leads_{timestamp}.{fmt_norm}"
-    else:
-        out_path = Path(output)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path, count = written
+    typer.secho(f"Exported {count} intent lead(s) to {out_path}", fg=typer.colors.GREEN)
 
-    write_intent_leads(rows, out_path, fmt_norm)
-    typer.secho(f"Exported {len(rows)} intent lead(s) to {out_path}", fg=typer.colors.GREEN)
+
+_DAILY_STEPS = 4
+
+
+def _step(number: int, message: str) -> None:
+    """Narrate one stage of the daily routine."""
+    typer.secho(f"\n[{number}/{_DAILY_STEPS}] {message}", fg=typer.colors.CYAN, bold=True)
+
+
+@app.command()
+def daily(
+    since: str = typer.Option("3d", "--since", help="Mine posts from this window: 3d, 7d, 30d, …"),
+    max_age: int = typer.Option(7, "--max-age", help="Export only leads newer than N days."),
+    limit_per_need: int | None = typer.Option(
+        None, "--limit-per-need", help="Max posts to store per service."
+    ),
+) -> None:
+    """The one-command daily routine: scrape-all -> score -> enrich -> export xlsx.
+
+    Mines every service in ``needs.yaml``, ranks and enriches everything stored,
+    then writes a fresh Excel outreach list to ``exports/``. Equivalent to running
+    the four ``leadforge intent`` commands by hand — see USER_GUIDE.md §3.
+    """
+    from leadforge.models.enums import PostCategory
+    from leadforge.services.intent_enrich import build_intent_enrich_service
+    from leadforge.services.intent_score import build_intent_score_service
+
+    source = "linkedin_posts"
+    settings = get_settings()
+    needs = _load_needs(settings.needs_path, command="daily")
+    service = _build_scrape_service(source, settings, command="daily")
+
+    _step(1, f"Finding leads for {len(needs)} service(s) (since {since})… this takes a while.")
+    summaries, aborted = _scrape_needs(
+        service,
+        needs,
+        source=source,
+        since=since,
+        limit_per_need=limit_per_need,
+        resume=False,
+    )
+    new_leads = sum(summary.stored_new for _, summary in summaries)
+    if aborted:
+        typer.secho(
+            "Scraping stopped early (compliance block) — continuing with the leads already stored.",
+            fg=typer.colors.YELLOW,
+        )
+
+    _step(2, "Ranking leads (classify + freshness + need-match)…")
+    scored = build_intent_score_service(settings).run()
+    typer.echo(f"  scored {scored.scored} lead(s), of which {scored.client_leads} client lead(s).")
+
+    _step(3, "Filling in company, email, and website…")
+    enriched = build_intent_enrich_service(settings).run()
+    typer.echo(
+        f"  company {enriched.with_company}  email {enriched.with_email}  "
+        f"website {enriched.with_website}"
+    )
+
+    _step(4, f"Writing the Excel outreach list (last {max_age} day(s))…")
+    written = _write_intent_export(
+        settings,
+        fmt="xlsx",
+        output=None,
+        category=PostCategory.CLIENT_LEAD.value,
+        newer_than=_newer_than(max_age),
+    )
+    excel = str(written[0].resolve()) if written else f"none — no client leads in {max_age} day(s)"
+
+    typer.echo("\n" + "=" * 72)
+    typer.secho("Daily run complete.", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  {'new leads found':<18} {new_leads}")
+    typer.echo(f"  {'client leads':<18} {scored.client_leads}")
+    typer.echo(f"  {'Excel file':<18} {excel}")
+
+    if aborted:
+        raise typer.Exit(code=1)

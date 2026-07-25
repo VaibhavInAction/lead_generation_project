@@ -109,6 +109,7 @@ leadforge doctor                 # check the environment is ready
 Everyday use:
 
 ```bash
+leadforge daily                                         # the whole routine: scrape-all -> score -> enrich -> export xlsx
 leadforge intent scrape --need "marketing" --since 7d   # mine posts for one need
 leadforge intent scrape-all                             # mine every need in needs.yaml
 leadforge intent score                                  # (re)classify + score all stored leads
