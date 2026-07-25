@@ -331,6 +331,67 @@ STAFF_JOB_POSTS: list[tuple[str, str]] = [
 ]
 
 
+# --- Rhetorical sales hooks: the "?" family seen live -------------------------
+# All three reached the outreach list as client_lead. Same root cause: a request
+# phrase aimed at the *reader* and closed with a question mark is an ad, not an
+# ask. A genuine buyer states a need ("looking for an agency to help us"); an
+# advertiser asks one ("Looking for an agency? Meet us!").
+SALES_HOOK_POSTS: list[tuple[str, str, PostCategory]] = [
+    (
+        "Middle East Event Show",
+        "Looking for a Social Media Agency that understands events? Meet xNDigitize "
+        "at the Middle East Event Show!",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+    (
+        "Hannah Silverstein",
+        "Looking for a Brand Strategist or Creative Consultant? I'm open to work, "
+        "seeking my next role (ideally FT)",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+    (
+        "Estherokunfolami",
+        "Good morning, Happy wednesday. Sharing more of the Kitho website, this is "
+        "the profile setup screen where users can set up their profile.",
+        PostCategory.CONTENT_NOISE,
+    ),
+    # The same showcase shape as above, with the CTA tail that made it look like a
+    # request: a designer presenting work and inviting DMs is still not a buyer.
+    (
+        "Estherokunfolami",
+        "Good morning, Happy Wednesday. Sharing more of the Kitho website, this is "
+        "the profile setup screen. Recent work from my portfolio — DM me if you need "
+        "a designer for your next project.",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+    (
+        "Adverto Digital",
+        "Need more leads? We can help. Book a call with our team today.",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+    (
+        "Freelance Dev",
+        "Available for hire — taking on new clients this quarter. Hire me for your "
+        "next website build. DM me.",
+        PostCategory.COMPETITOR_SELFPROMO,
+    ),
+]
+
+# A greeting opener is normal politeness above a real ask — it must not suppress
+# the lead. Guards the "greeting only counts when nothing is requested" rule.
+GREETING_LEADS: list[tuple[str, str]] = [
+    (
+        "Ravi Sharma",
+        "Good morning everyone! We're looking for a marketing agency to help with "
+        "our D2C launch. DM me your case studies.",
+    ),
+    (
+        "Priya N",
+        "Happy Monday! Looking for a branding agency for our rebrand. Mail us at p@x.com",
+    ),
+]
+
+
 class TestClassifyPost:
     @pytest.mark.parametrize("author, post", GENUINE_LEADS)
     def test_genuine_requests_are_client_leads(self, author: str, post: str) -> None:
@@ -366,6 +427,28 @@ class TestClassifyPost:
             a for a, p in GOLD_STANDARD_LEADS if classify_post(p, author_name=a).category.is_client
         ]
         assert len(kept) == 19, [a for a, _ in GOLD_STANDARD_LEADS if a not in kept]
+
+    @pytest.mark.parametrize("author, post, expected", SALES_HOOK_POSTS)
+    def test_rhetorical_sales_hooks_are_not_client_leads(
+        self, author: str, post: str, expected: PostCategory
+    ) -> None:
+        # Live false positives: an ad, a job seeker, and a portfolio showcase.
+        result = classify_post(post, author_name=author)
+        assert result.category is not PostCategory.CLIENT_LEAD, (author, result.signals)
+        assert result.category is expected, (author, result.signals)
+
+    @pytest.mark.parametrize("author, post", GREETING_LEADS)
+    def test_greeting_opener_does_not_suppress_a_real_ask(self, author: str, post: str) -> None:
+        # "Good morning!" above a genuine request is politeness, not chit-chat.
+        result = classify_post(post, author_name=author)
+        assert result.category is PostCategory.CLIENT_LEAD, (author, result.signals)
+
+    def test_question_mark_separates_an_ad_from_an_ask(self) -> None:
+        # The rule in one pair: same words, different punctuation, opposite verdict.
+        ad = classify_post("Looking for a marketing agency? Meet us at stand 12!")
+        ask = classify_post("Looking for a marketing agency to help us launch. DM me.")
+        assert ad.category is PostCategory.COMPETITOR_SELFPROMO, ad.signals
+        assert ask.category is PostCategory.CLIENT_LEAD, ask.signals
 
     @pytest.mark.parametrize("author, post", STAFF_JOB_POSTS)
     def test_staff_hiring_is_still_job_posting(self, author: str, post: str) -> None:

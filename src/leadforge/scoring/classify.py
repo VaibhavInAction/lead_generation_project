@@ -162,6 +162,21 @@ _SELFPROMO = _compile(
     r"(?:^|[.!?\n]\s*)top\s+\d+\b",
     r"\bbenefits of (?:hiring|working with|outsourcing to)\b",
     r"\bhere are (?:the|\d+)\b",
+    # Rhetorical sales hook: a request phrase aimed at the *reader* and closed with
+    # a question mark — "Looking for a Social Media Agency? Meet us at the show!".
+    # A genuine buyer states their need; an ad asks the reader a question.
+    r"(?:^|[.!?\n]\s*)(?:looking for|searching for|in need of|need)\b[^.!?\n]{0,80}\?",
+    r"\bwe can help\b",
+    r"\bbook a (?:call|demo|consultation)\b",
+    r"\blet us help\b",
+    # Job seeker / freelancer advertising availability — selling, not buying.
+    r"\bopen to work\b",
+    r"\bseeking my next (?:role|opportunity|position)\b",
+    r"\bavailable for (?:hire|work|projects?|freelance)\b",
+    r"\btaking on new clients\b",
+    r"\baccepting new (?:projects?|clients?)\b",
+    r"\bmy portfolio\b",
+    r"\bhire me\b",
 )
 
 # --- content_noise: opinion, article share, story/anecdote ------------------
@@ -208,6 +223,18 @@ _CONTENT_NOISE = _compile(
     r"\bsat down reflecting\b",
     r"\b20\d{2}:",  # "2022:" year-marker storytelling
     r"\bin 20\d{2} i\b",
+    # portfolio / showcase — a designer presenting work, not a client seeking one
+    r"\bsharing more of\b",
+    r"\bhere['’]s a look at\b",
+    r"\brecent work\b",
+    r"\ba project i (?:worked on|did|built|designed|shipped)\b",
+)
+
+# A greeting opener is only noise when the post never asks for anything — plenty
+# of genuine leads open "Good morning everyone! We're looking for an agency…".
+_GREETING = _compile(
+    r"(?:^|\n)\s*(?:good (?:morning|afternoon|evening)|"
+    r"happy (?:mon|tues|wednes|thurs|fri|satur|sun)day)\b",
 )
 
 
@@ -257,6 +284,11 @@ def classify_post(post_text: str | None, *, author_name: str | None = None) -> C
     cta = _hits(text, _CTA)
     # A request needs a target; a CTA alongside a target also reads as a genuine ask.
     has_request = bool(request and target) or bool(cta and target)
+
+    # "Good morning! Happy Wednesday." with nothing being asked for is a chit-chat
+    # or showcase opener; the same greeting above a real ask is just politeness.
+    if not request:
+        noise = noise + _hits(text, _GREETING)
 
     firm_hire = _hits(text, _FIRM_HIRE)
     staff_hire = _hits(text, _STAFF_HIRE)
